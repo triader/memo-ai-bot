@@ -71,23 +71,33 @@ export const handleAddWord = (bot, supabase) => {
           const categories = await categoryService.getUserCategories(userId);
           const selectedCategory = categories.find((cat) => cat.name === text);
 
-          if (selectedCategory) {
+          try {
+            let category;
+            if (selectedCategory) {
+              category = selectedCategory;
+            } else {
+              // Create new category if it doesn't exist
+              category = await categoryService.createCategory(userId, text);
+            }
+
             StateManager.setState(chatId, 'waiting_word', {
-              categoryId: selectedCategory.id,
-              categoryName: selectedCategory.name
+              categoryId: category.id,
+              categoryName: category.name
             });
 
+            const message = selectedCategory
+              ? `Category: ${category.name}\nPlease enter the word you want to add:`
+              : `Category "${category.name}" created!\nPlease enter the word you want to add:`;
+
+            await bot.sendMessage(chatId, message, cancelKeyboard);
+          } catch (error) {
+            console.error('Error in category selection:', error);
             await bot.sendMessage(
               chatId,
-              `Category: ${selectedCategory.name}\nPlease enter the word you want to add:`,
-              cancelKeyboard
+              '❌ Failed to process category. Please try again.',
+              mainKeyboard
             );
-          } else {
-            await bot.sendMessage(
-              chatId,
-              'Invalid category. Please choose a valid category or type a new category name:',
-              { reply_markup: createCategoryKeyboard(categories) }
-            );
+            StateManager.delete(chatId);
           }
           break;
 
