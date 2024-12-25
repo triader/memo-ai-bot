@@ -1,8 +1,9 @@
 export const mainKeyboard = {
   reply_markup: {
     keyboard: [
-      [{ text: '📝 Add Word' }, { text: '📥 Import' }],
-      [{ text: '🎯 Practice' }, { text: '📚 My Words' }]
+      [{ text: '📝 Add Word' }, { text: '🎯 Practice' }],
+      [{ text: '📚 My Words' }, { text: '📥 Import' }],
+      [{ text: '🔄 Change Category' }]
     ],
     resize_keyboard: true,
     persistent: true

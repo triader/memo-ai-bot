@@ -16,6 +16,7 @@ import {
 import { handleDeleteCommand } from './handlers/deleteWordHandler.js';
 import { mainKeyboard, cancelKeyboard } from './utils/keyboards.js';
 import { UserSettingsService } from './services/userSettingsService.js';
+import { handleCategory, categoryStates } from './handlers/categoryHandler.js';
 
 // Load environment variables
 dotenv.config();
@@ -67,6 +68,9 @@ app.post('/bot/command', async (req, res) => {
         await handleAddWord(bot, supabase)(msg);
         res.json({ success: true });
         break;
+      case '/category':
+        await handleCategory(bot, supabase, userSettingsService)(msg);
+        break;
       default:
         res.status(400).json({ error: 'Unknown command' });
     }
@@ -103,6 +107,9 @@ bot.on('message', async (msg) => {
         case '/words':
           await handleMyWords(bot, supabase, userSettingsService)(msg);
           break;
+        case '/category':
+          await handleCategory(bot, supabase, userSettingsService)(msg);
+          break;
         default:
           await bot.sendMessage(
             chatId,
@@ -130,6 +137,9 @@ bot.on('message', async (msg) => {
       case '❌ Cancel':
         await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
         break;
+      case '🔄 Change Category':
+        await handleCategory(bot, supabase, userSettingsService)(msg);
+        break;
       default:
         // Handle document uploads for import
         if (msg.document) {
@@ -137,10 +147,14 @@ bot.on('message', async (msg) => {
           return;
         }
 
-        // Handle practice answers or word addition
+        // Handle practice answers, category management, or word addition
         const practiceState = practiceStates.get(chatId);
+        const categoryState = categoryStates.get(chatId);
+
         if (practiceState?.isWaitingForAnswer) {
           await handlePractice(bot, supabase, userSettingsService)(msg);
+        } else if (categoryState) {
+          await handleCategory(bot, supabase, userSettingsService)(msg);
         } else {
           await handleAddWord(bot, supabase, userSettingsService)(msg);
         }
