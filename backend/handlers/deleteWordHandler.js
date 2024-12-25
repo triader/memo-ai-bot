@@ -21,17 +21,13 @@ export const handleDeleteCommand = (bot, supabase) => async (msg) => {
     // First find the word
     const { data: words, error: findError } = await supabase
       .from('words')
-      .select('id, word')
-      .eq('user_id', userId)
-      .ilike('word', word);
+      .delete('id, word')
+      .eq('word', word)
+      .select('id', 'word');
 
     if (findError) {
       console.error('Error finding word:', findError);
-      await bot.sendMessage(
-        chatId,
-        '❌ Failed to find word. Please try again.',
-        mainKeyboard
-      );
+      await bot.sendMessage(chatId, '❌ Failed to find word. Please try again.', mainKeyboard);
       return;
     }
 
@@ -45,20 +41,11 @@ export const handleDeleteCommand = (bot, supabase) => async (msg) => {
     }
 
     // Then delete it
-    const { error: deleteError } = await supabase
-      .from('words')
-      .delete()
-      .eq('id', words[0].id);
-
-    
+    const { error: deleteError } = await supabase.from('words').delete().eq('id', words[0].id);
 
     if (deleteError) {
       console.error('Unexpected error:', words[0].id);
-      await bot.sendMessage(
-        chatId,
-        words[0].id,
-        mainKeyboard
-      );
+      await bot.sendMessage(chatId, deleteError, mainKeyboard);
       return;
     }
 
@@ -67,7 +54,6 @@ export const handleDeleteCommand = (bot, supabase) => async (msg) => {
       `✅ Successfully deleted "${words[0].word}" from your dictionary.`,
       mainKeyboard
     );
-
   } catch (error) {
     console.error('Unexpected error:', error);
     await bot.sendMessage(
