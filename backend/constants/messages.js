@@ -35,10 +35,12 @@ export const MESSAGES = {
     OVERALL_RESULTS: 'Overall Results:',
     CORRECT: (count) => `✅ Correct: ${count}`,
     WRONG: (count) => `❌ Wrong: ${count}`,
+    SKIPPED: (count) => `⏭️ Skipped: ${count}`,
     SUCCESS_RATE: (emoji, percentage) => `${emoji} Success rate: ${percentage}%`,
     PRACTICED_WORDS: 'Practiced words:',
     FOOTER: 'Keep practicing to improve your vocabulary!'
-  }
+  },
+  WORD_SKIPPED: 'Skipping the word'
 };
 
 export const EMOJIS = {

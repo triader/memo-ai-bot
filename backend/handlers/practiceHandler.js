@@ -1,6 +1,6 @@
 import { generateSentence } from '../utils/openai.js';
 import { updateWordProgress } from './wordProgressHandler.js';
-import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
+import { mainKeyboard } from '../utils/keyboards.js';
 import { MESSAGES, EMOJIS } from '../constants/messages.js';
 
 // Constants
@@ -23,6 +23,14 @@ const PRACTICE_TYPE_LABELS = {
 };
 
 console.log('Practice type labels:', PRACTICE_TYPE_LABELS);
+
+// Define cancel keyboard with skip button
+const cancelKeyboard = {
+  reply_markup: {
+    keyboard: [[{ text: '⏭️ Skip' }], [{ text: '❌ Cancel' }]],
+    resize_keyboard: true
+  }
+};
 
 // Create practice type selection keyboard
 const createPracticeTypeKeyboard = () => ({
@@ -58,6 +66,48 @@ const normalizeAnswer = (text) => {
   }
 
   return normalized;
+};
+
+// Add this helper function near the top with other helper functions
+const createSummaryMessage = (sessionStats, practicedWordsDetails, sessionResults) => {
+  const percentage = Math.round((sessionStats.correct / sessionStats.total) * 100);
+  const performanceEmoji =
+    percentage >= 90
+      ? EMOJIS.PERFORMANCE.EXCELLENT
+      : percentage >= 70
+        ? EMOJIS.PERFORMANCE.GOOD
+        : percentage >= 50
+          ? EMOJIS.PERFORMANCE.FAIR
+          : EMOJIS.PERFORMANCE.LEARNING;
+
+  const wordsList = practicedWordsDetails
+    .map((word) => {
+      const result = sessionResults[word.id];
+      const resultEmoji = result === true ? '✅' : result === 'skipped' ? '⏭️' : '❌';
+      const progress = word.mastery_level || 0;
+      const progressEmoji = progress >= 90 ? '🌟' : progress >= 50 ? '📈' : '🔄';
+
+      return (
+        `${resultEmoji} ${word.word} - ${word.translation}\n` +
+        `   ${progressEmoji} Current progress: ${progress}%`
+      );
+    })
+    .join('\n\n');
+
+  return (
+    MESSAGES.PRACTICE_SUMMARY.HEADER +
+    MESSAGES.PRACTICE_SUMMARY.OVERALL_RESULTS +
+    MESSAGES.PRACTICE_SUMMARY.CORRECT(sessionStats.correct) +
+    MESSAGES.PRACTICE_SUMMARY.WRONG(
+      sessionStats.total - sessionStats.correct - sessionStats.skipped
+    ) +
+    MESSAGES.PRACTICE_SUMMARY.SKIPPED(sessionStats.skipped) +
+    MESSAGES.PRACTICE_SUMMARY.SUCCESS_RATE(performanceEmoji, percentage) +
+    MESSAGES.PRACTICE_SUMMARY.PRACTICED_WORDS +
+    wordsList +
+    '\n\n' +
+    MESSAGES.PRACTICE_SUMMARY.FOOTER
+  );
 };
 
 export const handlePractice = (bot, supabase, userSettingsService) => {
@@ -136,8 +186,12 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
         }
         options.sort(() => Math.random() - 0.5);
 
-        // Add options as keyboard buttons and include Cancel button
-        const keyboard = [...options.map((option) => [{ text: option }]), [{ text: '❌ Cancel' }]];
+        // Add options as keyboard buttons and include Skip and Cancel buttons
+        const keyboard = [
+          ...options.map((option) => [{ text: option }]),
+          [{ text: '⏭️ Skip' }],
+          [{ text: '❌ Cancel' }]
+        ];
 
         await bot.sendMessage(
           chatId,
@@ -247,6 +301,88 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
         return;
       }
 
+      // Handle skip command
+      if (text === '⏭️ Skip') {
+        await bot.sendMessage(
+          chatId,
+          MESSAGES.WORD_SKIPPED,
+          state.sessionProgress === WORDS_PER_SESSION ? mainKeyboard : cancelKeyboard
+        );
+
+        // Update session results for the skipped word
+        const updatedSessionResults = {
+          ...(state.sessionResults || {}),
+          [state.wordId]: 'skipped' // Mark as skipped instead of false
+        };
+
+        // Check if session is complete
+        if (state.sessionProgress >= WORDS_PER_SESSION) {
+          // Get details of practiced words
+          const { data: practicedWordsDetails } = await supabase
+            .from('words')
+            .select('*')
+            .in('id', state.practicedWords);
+
+          // Calculate and show final statistics
+          const sessionStats = state.practicedWords.reduce(
+            (stats, wordId) => {
+              const result = updatedSessionResults[wordId];
+              return {
+                correct: stats.correct + (result === true ? 1 : 0),
+                skipped: stats.skipped + (result === 'skipped' ? 1 : 0),
+                total: stats.total + 1
+              };
+            },
+            { correct: 0, skipped: 0, total: 0 }
+          );
+
+          // Show summary and end session
+          const summaryMessage = createSummaryMessage(
+            sessionStats,
+            practicedWordsDetails,
+            updatedSessionResults
+          );
+          await bot.sendMessage(chatId, summaryMessage, mainKeyboard);
+          practiceStates.delete(chatId);
+          return;
+        }
+
+        // If session continues, get next word
+        const nextWordData = await getNextWord(userId, state.currentCategory, state.practicedWords);
+        if (!nextWordData) {
+          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_MORE_WORDS, mainKeyboard);
+          practiceStates.delete(chatId);
+          return;
+        }
+
+        // Update state for next word
+        const nextPracticeType =
+          state.selectedType === PRACTICE_TYPES.RANDOM
+            ? getRandomPracticeType()
+            : state.selectedType;
+
+        practiceStates.set(chatId, {
+          ...state,
+          wordId: nextWordData.word.id,
+          word: nextWordData.word.word,
+          correctAnswer: nextWordData.word.translation,
+          practiceType: nextPracticeType,
+          sessionProgress: state.sessionProgress + 1,
+          practicedWords: [...state.practicedWords, nextWordData.word.id],
+          sessionResults: updatedSessionResults
+        });
+
+        // Send next practice question
+        await sendPracticeQuestion(
+          bot,
+          chatId,
+          nextWordData,
+          nextPracticeType,
+          state.currentCategory
+        );
+        return;
+      }
+
       // Handle answer
       if (!state.isWaitingForAnswer) return;
 
@@ -284,6 +420,12 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
 
       // Check if session is complete
       if (state.sessionProgress >= WORDS_PER_SESSION) {
+        // Update session results with the last answer first
+        const finalSessionResults = {
+          ...(state.sessionResults || {}),
+          [state.wordId]: isCorrect
+        };
+
         // Get details of practiced words
         const { data: practicedWordsDetails } = await supabase
           .from('words')
@@ -293,49 +435,21 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
         // Calculate session statistics
         const sessionStats = state.practicedWords.reduce(
           (stats, wordId) => {
-            const isCorrect = state.sessionResults?.[wordId] || false;
+            const result = finalSessionResults[wordId];
             return {
-              correct: stats.correct + (isCorrect ? 1 : 0),
+              correct: stats.correct + (result === true ? 1 : 0),
+              skipped: stats.skipped + (result === 'skipped' ? 1 : 0),
               total: stats.total + 1
             };
           },
-          { correct: 0, total: 0 }
+          { correct: 0, skipped: 0, total: 0 }
         );
 
-        const percentage = Math.round((sessionStats.correct / sessionStats.total) * 100);
-        const performanceEmoji =
-          percentage >= 90
-            ? EMOJIS.PERFORMANCE.EXCELLENT
-            : percentage >= 70
-              ? EMOJIS.PERFORMANCE.GOOD
-              : percentage >= 50
-                ? EMOJIS.PERFORMANCE.FAIR
-                : EMOJIS.PERFORMANCE.LEARNING;
-
-        // Format practiced words list
-        const wordsList = practicedWordsDetails
-          .map((word) => {
-            const isCorrect = state.sessionResults[word.id];
-            const resultEmoji = isCorrect ? '✅' : '❌';
-            const progress = word.mastery_level || 0;
-            const progressEmoji = progress >= 90 ? '🌟' : progress >= 50 ? '📈' : '🔄';
-
-            return (
-              `${resultEmoji} ${word.word} - ${word.translation}\n` +
-              `   ${progressEmoji} Current progress: ${progress}%`
-            );
-          })
-          .join('\n\n');
-
-        const summaryMessage =
-          MESSAGES.PRACTICE_SUMMARY.HEADER +
-          MESSAGES.PRACTICE_SUMMARY.OVERALL_RESULTS +
-          MESSAGES.PRACTICE_SUMMARY.CORRECT(sessionStats.correct) +
-          MESSAGES.PRACTICE_SUMMARY.WRONG(sessionStats.total - sessionStats.correct) +
-          MESSAGES.PRACTICE_SUMMARY.SUCCESS_RATE(performanceEmoji, percentage) +
-          MESSAGES.PRACTICE_SUMMARY.PRACTICED_WORDS +
-          MESSAGES.PRACTICE_SUMMARY.FOOTER;
-
+        const summaryMessage = createSummaryMessage(
+          sessionStats,
+          practicedWordsDetails,
+          finalSessionResults
+        );
         await bot.sendMessage(chatId, summaryMessage, mainKeyboard);
         practiceStates.delete(chatId);
         return;
