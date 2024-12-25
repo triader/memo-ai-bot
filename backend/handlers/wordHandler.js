@@ -1,17 +1,13 @@
 import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
 import { UserService } from '../services/userService.js';
-import { StateManager } from '../utils/stateManager.js';
 
-const createCategoryKeyboard = (categories) => {
-  const keyboard = categories.map((cat) => [
-    {
-      text: cat.name
-    }
-  ]);
+// Store word addition states
+const wordStates = new Map();
 
+export const createCategoryKeyboard = (categories) => {
+  const keyboard = categories.map((cat) => [{ text: cat.name }]);
   keyboard.push([{ text: '❌ Cancel' }]);
-
   return {
     keyboard,
     resize_keyboard: true,
@@ -19,7 +15,7 @@ const createCategoryKeyboard = (categories) => {
   };
 };
 
-export const handleAddWord = (bot, supabase) => {
+export const handleAddWord = (bot, supabase, userSettingsService) => {
   const categoryService = new CategoryService(supabase);
   const userService = new UserService(supabase);
 
@@ -34,123 +30,80 @@ export const handleAddWord = (bot, supabase) => {
 
       // Handle initial command
       if (text === '/add' || text === '📝 Add Word') {
-        const categories = await categoryService.getUserCategories(userId);
+        const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
-        let message;
-        if (categories?.length) {
-          message = 'Choose a category or type a new category name:';
-          const categoryKeyboard = createCategoryKeyboard(categories);
-          await bot.sendMessage(chatId, message, { reply_markup: categoryKeyboard });
-          StateManager.setState(chatId, 'selecting_category');
+        if (currentCategory) {
+          // If user has a current category, start word addition directly
+          wordStates.set(chatId, {
+            step: 'waiting_word',
+            categoryId: currentCategory.id,
+            categoryName: currentCategory.name
+          });
+          await bot.sendMessage(
+            chatId,
+            `Adding word to category "${currentCategory.name}"\nPlease enter the word:`,
+            cancelKeyboard
+          );
         } else {
-          message = 'You have no categories yet. Please enter a name for your first category:';
-          await bot.sendMessage(chatId, message, cancelKeyboard);
-          StateManager.setState(chatId, 'creating_category');
+          // If no category exists, prompt to create one
+          await bot.sendMessage(
+            chatId,
+            'You have no categories yet. Please enter a name for your first category:',
+            cancelKeyboard
+          );
+          wordStates.set(chatId, { step: 'creating_category' });
         }
         return;
       }
 
-      // Handle cancel command in any state
+      // Handle cancel command
       if (text === '❌ Cancel') {
-        StateManager.delete(chatId);
+        wordStates.delete(chatId);
         await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
         return;
       }
 
       // Get current state
-      const userState = StateManager.get(chatId);
-
-      if (!userState) {
-        console.log('No state found for chat:', chatId);
-        return;
-      }
+      const state = wordStates.get(chatId);
+      if (!state) return;
 
       // Handle state-specific logic
-      switch (userState.step) {
-        case 'selecting_category':
-          const categories = await categoryService.getUserCategories(userId);
-          const selectedCategory = categories.find((cat) => cat.name === text);
-
-          try {
-            let category;
-            if (selectedCategory) {
-              category = selectedCategory;
-            } else {
-              // Create new category if it doesn't exist
-              category = await categoryService.createCategory(userId, text);
-            }
-
-            StateManager.setState(chatId, 'waiting_word', {
-              categoryId: category.id,
-              categoryName: category.name
-            });
-
-            const message = selectedCategory
-              ? `Category: ${category.name}\nPlease enter the word you want to add:`
-              : `Category "${category.name}" created!\nPlease enter the word you want to add:`;
-
-            await bot.sendMessage(chatId, message, cancelKeyboard);
-          } catch (error) {
-            console.error('Error in category selection:', error);
-            await bot.sendMessage(
-              chatId,
-              '❌ Failed to process category. Please try again.',
-              mainKeyboard
-            );
-            StateManager.delete(chatId);
-          }
-          break;
-
+      switch (state.step) {
         case 'creating_category':
-          try {
-            const categoryName = text.trim();
-
-            if (!categoryName) {
-              await bot.sendMessage(chatId, 'Please enter a valid category name.', cancelKeyboard);
-              return;
-            }
-
-            const category = await categoryService.createCategory(userId, categoryName);
-
-            StateManager.setState(chatId, 'waiting_word', {
-              categoryId: category.id,
-              categoryName: category.name
-            });
-
-            await bot.sendMessage(
-              chatId,
-              `Category "${category.name}" created!\nPlease enter the word you want to add:`,
-              cancelKeyboard
-            );
-          } catch (error) {
-            console.error('Error creating category:', error);
-            await bot.sendMessage(
-              chatId,
-              '❌ Failed to create category. Please try again.',
-              mainKeyboard
-            );
-            StateManager.delete(chatId);
+          const categoryName = text.trim();
+          if (!categoryName) {
+            await bot.sendMessage(chatId, 'Please enter a valid category name.', cancelKeyboard);
+            return;
           }
+
+          const category = await categoryService.createCategory(userId, categoryName);
+          userSettingsService.setCurrentCategory(userId, category);
+
+          wordStates.set(chatId, {
+            step: 'waiting_word',
+            categoryId: category.id,
+            categoryName: category.name
+          });
+
+          await bot.sendMessage(
+            chatId,
+            `Category "${category.name}" created!\nPlease enter the word you want to add:`,
+            cancelKeyboard
+          );
           break;
 
         case 'waiting_word':
           const word = text.trim();
-
           if (!word) {
             await bot.sendMessage(chatId, 'Please enter a valid word.', cancelKeyboard);
             return;
           }
 
-          console.log('Before transition - Current state:', userState);
-
-          // Update state for waiting translation
-          StateManager.setState(chatId, 'waiting_translation', {
-            categoryId: userState.categoryId,
-            categoryName: userState.categoryName,
+          wordStates.set(chatId, {
+            ...state,
+            step: 'waiting_translation',
             word
           });
-
-          console.log('After transition - New state:', StateManager.get(chatId));
 
           await bot.sendMessage(
             chatId,
@@ -170,38 +123,32 @@ export const handleAddWord = (bot, supabase) => {
             const { error } = await supabase.from('words').insert([
               {
                 user_id: userId,
-                category_id: userState.categoryId,
-                word: userState.word,
-                translation: translation,
+                category_id: state.categoryId,
+                word: state.word,
+                translation,
                 created_at: new Date()
               }
             ]);
 
             if (error) throw error;
 
-            StateManager.delete(chatId);
-
             await bot.sendMessage(
               chatId,
-              `✅ Successfully added to category "${userState.categoryName}":\n${userState.word} - ${translation}`,
+              `✅ Successfully added to category "${state.categoryName}":\n${state.word} - ${translation}`,
               mainKeyboard
             );
+            wordStates.delete(chatId);
           } catch (error) {
             console.error('Error adding word:', error);
-            StateManager.delete(chatId);
             await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', mainKeyboard);
+            wordStates.delete(chatId);
           }
           break;
-
-        default:
-          console.error('Invalid state:', userState.step);
-          StateManager.delete(chatId);
-          await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', mainKeyboard);
       }
     } catch (error) {
       console.error('Error in word handler:', error);
-      StateManager.delete(chatId);
       await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', mainKeyboard);
+      wordStates.delete(chatId);
     }
   };
 };

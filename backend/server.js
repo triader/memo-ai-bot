@@ -6,15 +6,16 @@ import { supabase } from './config/supabase.js';
 import { parseCommand } from './utils/commandParser.js';
 import { handleStart } from './handlers/startHandler.js';
 import { handleAddWord } from './handlers/wordHandler.js';
-import { handlePractice } from './handlers/practiceHandler.js';
+import { handlePractice, practiceStates } from './handlers/practiceHandler.js';
 import { handleBulkImport } from './handlers/bulkImportHandler.js';
 import {
   handleMyWords,
   handleWordEdit,
-  handleWordDelete,
+  handleWordDelete
 } from './handlers/wordManagementHandler.js';
 import { handleDeleteCommand } from './handlers/deleteWordHandler.js';
 import { mainKeyboard, cancelKeyboard } from './utils/keyboards.js';
+import { UserSettingsService } from './services/userSettingsService.js';
 
 // Load environment variables
 dotenv.config();
@@ -32,7 +33,7 @@ app.use(
   cors({
     origin: true,
     methods: ['POST'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type']
   })
 );
 app.use(express.json());
@@ -42,7 +43,7 @@ app.use((err, req, res, next) => {
   console.error('Server error:', err);
   res.status(500).json({
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
@@ -58,7 +59,7 @@ app.post('/bot/command', async (req, res) => {
     const msg = {
       text: command,
       chat: { id: userId },
-      from: { id: userId },
+      from: { id: userId }
     };
 
     switch (command) {
@@ -94,7 +95,13 @@ bot.on('message', async (msg) => {
           await handleStart(bot)(msg);
           break;
         case '/add':
-          await handleAddWord(bot, supabase)(msg);
+          await handleAddWord(bot, supabase, userSettingsService)(msg);
+          break;
+        case '/practice':
+          await handlePractice(bot, supabase, userSettingsService)(msg);
+          break;
+        case '/words':
+          await handleMyWords(bot, supabase, userSettingsService)(msg);
           break;
         default:
           await bot.sendMessage(
@@ -109,16 +116,16 @@ bot.on('message', async (msg) => {
     // Handle menu button actions
     switch (text) {
       case '📝 Add Word':
-        await handleAddWord(bot, supabase)(msg);
+        await handleAddWord(bot, supabase, userSettingsService)(msg);
         break;
       case '📥 Import':
         await handleBulkImport(bot, supabase)(msg);
         break;
       case '🎯 Practice':
-        await handlePractice(bot, supabase)(msg);
+        await handlePractice(bot, supabase, userSettingsService)(msg);
         break;
       case '📚 My Words':
-        await handleMyWords(bot, supabase)(msg);
+        await handleMyWords(bot, supabase, userSettingsService)(msg);
         break;
       case '❌ Cancel':
         await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
@@ -130,8 +137,13 @@ bot.on('message', async (msg) => {
           return;
         }
 
-        // Handle word addition flow
-        await handleAddWord(bot, supabase)(msg);
+        // Handle practice answers or word addition
+        const practiceState = practiceStates.get(chatId);
+        if (practiceState?.isWaitingForAnswer) {
+          await handlePractice(bot, supabase, userSettingsService)(msg);
+        } else {
+          await handleAddWord(bot, supabase, userSettingsService)(msg);
+        }
     }
   } catch (error) {
     console.error('Error handling message:', error);
@@ -178,3 +190,5 @@ app.listen(PORT, () => {
 });
 
 console.log('Bot is running...');
+
+const userSettingsService = new UserSettingsService(supabase);

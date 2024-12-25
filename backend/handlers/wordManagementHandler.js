@@ -1,38 +1,50 @@
 import { createWordActionsKeyboard, mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 
-export const handleMyWords = (bot, supabase) => async (msg) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
+export const handleMyWords = (bot, supabase, userSettingsService) => {
+  return async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
 
-  try {
-    const { data: words, error } = await supabase
-      .from('words')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    try {
+      const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
-    if (error) throw error;
+      if (!currentCategory) {
+        await bot.sendMessage(chatId, 'You need to add some words first!', mainKeyboard);
+        return;
+      }
 
-    if (!words.length) {
-      await bot.sendMessage(chatId, 'You haven\'t added any words yet!');
-      return;
+      // Get words for current category
+      const { data: words, error } = await supabase
+        .from('words')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('category_id', currentCategory.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      if (!words?.length) {
+        await bot.sendMessage(
+          chatId,
+          `No words found in category "${currentCategory.name}". Add some words first!`,
+          mainKeyboard
+        );
+        return;
+      }
+
+      // Format words list
+      const wordsList = words.map((w) => `${w.word} - ${w.translation}`).join('\n');
+
+      await bot.sendMessage(
+        chatId,
+        `📚 Words in category "${currentCategory.name}":\n\n${wordsList}`,
+        mainKeyboard
+      );
+    } catch (error) {
+      console.error('Error fetching words:', error);
+      await bot.sendMessage(chatId, '❌ Failed to fetch words. Please try again.', mainKeyboard);
     }
-
-    for (const word of words) {
-      const progress = word.mastery_level || 0;
-      const message = `
-📖 ${word.word} - ${word.translation}
-📊 Progress: ${progress}%
-✅ Correct: ${word.correct_answers || 0}
-❌ Incorrect: ${word.incorrect_answers || 0}
-🎯 Status: ${progress >= 90 ? 'Learned' : 'Learning'}
-`;
-      await bot.sendMessage(chatId, message, createWordActionsKeyboard(word.id));
-    }
-  } catch (error) {
-    console.error('Error fetching words:', error);
-    await bot.sendMessage(chatId, '❌ Failed to fetch your words.');
-  }
+  };
 };
 
 export const handleWordEdit = (bot, supabase) => async (msg, wordId) => {
@@ -71,11 +83,7 @@ export const handleWordDelete = (bot, supabase) => async (msg, wordId) => {
   const userId = msg.from.id;
 
   try {
-    const { error } = await supabase
-      .from('words')
-      .delete()
-      .eq('id', wordId)
-      .eq('user_id', userId);
+    const { error } = await supabase.from('words').delete().eq('id', wordId).eq('user_id', userId);
 
     if (error) throw error;
 

@@ -1,40 +1,33 @@
 import { generateSentence } from '../utils/openai.js';
 import { updateWordProgress } from './wordProgressHandler.js';
+import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 
-export const handlePractice = (bot, supabase) => async (msg) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
+// Store practice states
+export const practiceStates = new Map();
 
-  try {
-    // First, fetch categories
-    const { data: categories } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('user_id', userId);
+export const handlePractice = (bot, supabase, userSettingsService) => {
+  return async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const text = msg.text;
 
-    if (!categories?.length) {
-      await bot.sendMessage(chatId, 'You need to add some words first!');
-      return;
-    }
+    console.log('Practice message:', { chatId, text });
+    console.log('Current practice state:', practiceStates.get(chatId));
 
-    let message = 'Choose a category to practice:\n\n';
-    message += categories.map((cat, i) => `${i + 1}. ${cat.name}`).join('\n');
+    try {
+      // Handle cancel command
+      if (text === '❌ Cancel') {
+        practiceStates.delete(chatId);
+        await bot.sendMessage(chatId, 'Practice cancelled.', mainKeyboard);
+        return;
+      }
 
-    const response = await bot.sendMessage(chatId, message);
-    
-    // Wait for category selection
-    bot.once('message', async (categoryMsg) => {
-      try {
-        if (!/^\d+$/.test(categoryMsg.text)) {
-          await bot.sendMessage(chatId, '❌ Please select a valid category number.');
-          return;
-        }
+      // Handle initial command
+      if (text === '/practice' || text === '🎯 Practice') {
+        const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
-        const index = parseInt(categoryMsg.text) - 1;
-        const selectedCategory = categories[index];
-
-        if (!selectedCategory) {
-          await bot.sendMessage(chatId, '❌ Invalid category selection.');
+        if (!currentCategory) {
+          await bot.sendMessage(chatId, 'You need to add some words first!', mainKeyboard);
           return;
         }
 
@@ -43,83 +36,128 @@ export const handlePractice = (bot, supabase) => async (msg) => {
           .from('words')
           .select('*')
           .eq('user_id', userId)
-          .eq('category_id', selectedCategory.id)
+          .eq('category_id', currentCategory.id)
           .lt('mastery_level', 90)
           .order('last_practiced', { ascending: true })
           .limit(5);
 
         if (error) throw error;
 
-        if (!words.length) {
+        if (!words?.length) {
           await bot.sendMessage(
             chatId,
-            `No words to practice in category "${selectedCategory.name}"! All words are well learned or you need to add new ones.`
+            `No words to practice in category "${currentCategory.name}"! All words are well learned or you need to add new ones.`,
+            mainKeyboard
           );
           return;
         }
 
-        // Select a word to practice
+        // Select a word and practice type
         const word = words[Math.floor(Math.random() * words.length)];
+        const practiceType = ['translate', 'multiple_choice', 'fill_blank'][
+          Math.floor(Math.random() * 3)
+        ];
 
-        // Randomly select practice type
-        const practiceTypes = ['translate', 'multiple_choice', 'fill_blank'];
-        const practiceType = practiceTypes[Math.floor(Math.random() * practiceTypes.length)];
+        practiceStates.set(chatId, {
+          wordId: word.id,
+          word: word.word,
+          correctAnswer: word.translation,
+          practiceType,
+          isWaitingForAnswer: true
+        });
+        console.log('Set practice state:', practiceStates.get(chatId));
 
+        // Send practice question
         switch (practiceType) {
           case 'translate':
-            await bot.sendMessage(chatId, `Translate this word: ${word.word}`);
+            await bot.sendMessage(
+              chatId,
+              `[${currentCategory.name}] Translate this word: ${word.word}`,
+              cancelKeyboard
+            );
             break;
-          
+
           case 'multiple_choice':
             const options = words
-              .map(w => w.translation)
+              .map((w) => w.translation)
               .sort(() => Math.random() - 0.5)
               .slice(0, 4);
-            
+
             if (!options.includes(word.translation)) {
               options[3] = word.translation;
             }
-            
-            const keyboard = {
-              reply_markup: {
-                keyboard: options.map(option => [{text: option}]),
-                one_time_keyboard: true
+
+            await bot.sendMessage(
+              chatId,
+              `[${currentCategory.name}] Choose the correct translation for: ${word.word}`,
+              {
+                reply_markup: {
+                  keyboard: options.map((option) => [{ text: option }]),
+                  one_time_keyboard: true,
+                  resize_keyboard: true
+                }
               }
-            };
-            
-            await bot.sendMessage(chatId, `Choose the correct translation for: ${word.word}`, keyboard);
+            );
             break;
-          
+
           case 'fill_blank':
             const sentence = await generateSentence(word.word, word.translation);
-            await bot.sendMessage(chatId, sentence);
+            await bot.sendMessage(chatId, `[${currentCategory.name}]\n${sentence}`, cancelKeyboard);
             break;
         }
-
-        return {
-          state: 'practicing',
-          wordId: word.id,
-          correctAnswer: word.translation,
-          practiceType,
-          categoryName: selectedCategory.name
-        };
-
-      } catch (error) {
-        console.error('Category selection error:', error);
-        await bot.sendMessage(
-          chatId,
-          '❌ Failed to start practice. Please try again.',
-          mainKeyboard
-        );
+        return;
       }
-    });
 
-  } catch (error) {
-    console.error('Practice error:', error);
-    await bot.sendMessage(
-      chatId,
-      '❌ Failed to start practice. Please try again.',
-      mainKeyboard
-    );
-  }
+      // Handle answer
+      const state = practiceStates.get(chatId);
+      console.log('Retrieved state for answer:', state);
+
+      if (!state || !state.isWaitingForAnswer) {
+        console.log('No valid state for answer');
+        return;
+      }
+
+      // Check answer
+      const answer = text.trim().toLowerCase();
+      const correctAnswer = state.correctAnswer.toLowerCase();
+      console.log('Checking answer:', { answer, correctAnswer, type: state.practiceType });
+
+      let isCorrect = false;
+
+      switch (state.practiceType) {
+        case 'translate':
+        case 'fill_blank':
+          isCorrect = answer === correctAnswer;
+          break;
+        case 'multiple_choice':
+          isCorrect = answer === correctAnswer;
+          break;
+      }
+
+      console.log('Answer check result:', isCorrect);
+
+      // Send feedback and update progress
+      await bot.sendMessage(
+        chatId,
+        isCorrect ? '✅ Correct!' : `❌ Wrong. The correct answer is: ${state.correctAnswer}`,
+        mainKeyboard
+      );
+
+      // Update word progress
+      if (state.wordId) {
+        await updateWordProgress(supabase, state.wordId, isCorrect);
+      }
+
+      practiceStates.delete(chatId);
+      console.log('State cleared after answer');
+    } catch (error) {
+      console.error('Practice error:', error);
+      await bot.sendMessage(
+        chatId,
+        '❌ Failed to process practice. Please try again.',
+        mainKeyboard
+      );
+      practiceStates.delete(chatId);
+    }
+  };
 };
