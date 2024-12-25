@@ -5,6 +5,26 @@ import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 // Store practice states
 export const practiceStates = new Map();
 
+// Helper function to normalize answers
+const normalizeAnswer = (text) => {
+  // Convert to lowercase and trim
+  let normalized = text.trim().toLowerCase();
+
+  // Remove leading "to " for verbs
+  if (normalized.startsWith('to ')) {
+    normalized = normalized.slice(3);
+  }
+
+  // Remove leading "a " or "an " for nouns
+  if (normalized.startsWith('a ')) {
+    normalized = normalized.slice(2);
+  } else if (normalized.startsWith('an ')) {
+    normalized = normalized.slice(3);
+  }
+
+  return normalized;
+};
+
 export const handlePractice = (bot, supabase, userSettingsService) => {
   return async (msg) => {
     const chatId = msg.chat.id;
@@ -118,19 +138,25 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
       }
 
       // Check answer
-      const answer = text.trim().toLowerCase();
-      const correctAnswer = state.correctAnswer.toLowerCase();
-      console.log('Checking answer:', { answer, correctAnswer, type: state.practiceType });
+      const answer = normalizeAnswer(text);
+      console.log('Checking answer:', { answer, state });
 
       let isCorrect = false;
 
       switch (state.practiceType) {
         case 'translate':
-        case 'fill_blank':
-          isCorrect = answer === correctAnswer;
+          // For translation, user should provide the translation of the word
+          isCorrect = answer === normalizeAnswer(state.correctAnswer);
           break;
+
         case 'multiple_choice':
-          isCorrect = answer === correctAnswer;
+          // For multiple choice, user selects from options
+          isCorrect = answer === normalizeAnswer(state.correctAnswer);
+          break;
+
+        case 'fill_blank':
+          // For fill in the blank, user should provide the original word
+          isCorrect = answer === normalizeAnswer(state.word);
           break;
       }
 
@@ -139,7 +165,9 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
       // Send feedback and update progress
       await bot.sendMessage(
         chatId,
-        isCorrect ? '✅ Correct!' : `❌ Wrong. The correct answer is: ${state.correctAnswer}`,
+        isCorrect
+          ? '✅ Correct!'
+          : `❌ Wrong. The correct answer is: ${state.practiceType === 'fill_blank' ? state.word : state.correctAnswer}`,
         mainKeyboard
       );
 
