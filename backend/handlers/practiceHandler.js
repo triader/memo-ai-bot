@@ -138,11 +138,56 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
 
       // Check if session is complete
       if (state.sessionProgress >= WORDS_PER_SESSION) {
-        await bot.sendMessage(
-          chatId,
-          `🎉 Practice session complete! You've practiced ${WORDS_PER_SESSION} words.`,
-          mainKeyboard
+        // Get details of practiced words
+        const { data: practicedWordsDetails } = await supabase
+          .from('words')
+          .select('*')
+          .in('id', state.practicedWords);
+
+        // Calculate session statistics
+        const sessionStats = state.practicedWords.reduce(
+          (stats, wordId) => {
+            const isCorrect = state.sessionResults?.[wordId] || false;
+            return {
+              correct: stats.correct + (isCorrect ? 1 : 0),
+              total: stats.total + 1
+            };
+          },
+          { correct: 0, total: 0 }
         );
+
+        const percentage = Math.round((sessionStats.correct / sessionStats.total) * 100);
+        let performanceEmoji;
+        if (percentage >= 90) performanceEmoji = '🌟';
+        else if (percentage >= 70) performanceEmoji = '👍';
+        else if (percentage >= 50) performanceEmoji = '💪';
+        else performanceEmoji = '📚';
+
+        // Format practiced words list
+        const wordsList = practicedWordsDetails
+          .map((word) => {
+            const isCorrect = state.sessionResults[word.id];
+            const resultEmoji = isCorrect ? '✅' : '❌';
+            const progress = word.mastery_level || 0;
+            const progressEmoji = progress >= 90 ? '🌟' : progress >= 50 ? '📈' : '🔄';
+
+            return (
+              `${resultEmoji} ${word.word} - ${word.translation}\n` +
+              `   ${progressEmoji} Current progress: ${progress}%`
+            );
+          })
+          .join('\n\n');
+
+        const summaryMessage =
+          `🎉 Practice session complete!\n\n` +
+          `Overall Results:\n` +
+          `✅ Correct: ${sessionStats.correct}\n` +
+          `❌ Wrong: ${sessionStats.total - sessionStats.correct}\n` +
+          `${performanceEmoji} Success rate: ${percentage}%\n\n` +
+          `Practiced words:\n\n${wordsList}\n\n` +
+          `Keep practicing to improve your vocabulary!`;
+
+        await bot.sendMessage(chatId, summaryMessage, mainKeyboard);
         practiceStates.delete(chatId);
         return;
       }
@@ -171,7 +216,11 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
         correctAnswer: nextWord.translation,
         practiceType: nextPracticeType,
         sessionProgress: state.sessionProgress + 1,
-        practicedWords: [...state.practicedWords, nextWord.id]
+        practicedWords: [...state.practicedWords, nextWord.id],
+        sessionResults: {
+          ...(state.sessionResults || {}),
+          [state.wordId]: isCorrect // Store result for the word that was just answered
+        }
       });
 
       // Send next practice question

@@ -13,7 +13,7 @@ export const handleMyWords = (bot, supabase, userSettingsService) => {
         return;
       }
 
-      // Get words for current category
+      // Get words for current category with progress info
       const { data: words, error } = await supabase
         .from('words')
         .select('*')
@@ -32,14 +32,32 @@ export const handleMyWords = (bot, supabase, userSettingsService) => {
         return;
       }
 
-      // Format words list
-      const wordsList = words.map((w) => `${w.word} - ${w.translation}`).join('\n');
+      // Format words list with progress
+      const wordsList = words
+        .map((w) => {
+          const progress = w.mastery_level || 0;
+          const progressEmoji = progress >= 90 ? '🌟' : progress >= 50 ? '📈' : '🔄';
+          const correctAnswers = w.correct_answers || 0;
+          const incorrectAnswers = w.incorrect_answers || 0;
+          const totalAttempts = correctAnswers + incorrectAnswers;
 
-      await bot.sendMessage(
-        chatId,
-        `📚 Words in category "${currentCategory.name}":\n\n${wordsList}`,
-        mainKeyboard
-      );
+          return (
+            `${w.word} - ${w.translation}\n` +
+            `${progressEmoji} Progress: ${progress}% ` +
+            `(✅${correctAnswers} ❌${incorrectAnswers})`
+          );
+        })
+        .join('\n\n');
+
+      const message =
+        `📚 Words in category "${currentCategory.name}":\n\n` +
+        `${wordsList}\n\n` +
+        `Legend:\n` +
+        `🌟 - Mastered (90%+)\n` +
+        `📈 - Learning (50-89%)\n` +
+        `🔄 - Needs practice (0-49%)`;
+
+      await bot.sendMessage(chatId, message, mainKeyboard);
     } catch (error) {
       console.error('Error fetching words:', error);
       await bot.sendMessage(chatId, '❌ Failed to fetch words. Please try again.', mainKeyboard);
