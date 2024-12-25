@@ -86,11 +86,25 @@ bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
 
-    if (!text) return;
+    // Handle cancel command globally
+    if (text === '❌ Cancel') {
+      practiceStates.delete(chatId);
+      categoryStates.delete(chatId);
+      await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
+      return;
+    }
 
-    // Handle commands
-    const parsedCommand = parseCommand(text);
-    if (parsedCommand) {
+    // First check if there's an active practice state
+    const practiceState = practiceStates.get(chatId);
+    if (practiceState) {
+      // Handle any practice-related message (type selection, answers, etc.)
+      await handlePractice(bot, supabase, userSettingsService)(msg);
+      return;
+    }
+
+    // If no practice state, handle other commands/actions
+    if (text?.startsWith('/')) {
+      const parsedCommand = parseCommand(text);
       switch (parsedCommand.command) {
         case '/delete':
           await handleDeleteCommand(bot, supabase)(msg);
@@ -120,7 +134,7 @@ bot.on('message', async (msg) => {
       return;
     }
 
-    // Handle menu button actions
+    // Handle menu buttons
     switch (text) {
       case '📝 Add Word':
         await handleAddWord(bot, supabase, userSettingsService)(msg);
@@ -147,17 +161,8 @@ bot.on('message', async (msg) => {
           return;
         }
 
-        // Handle practice answers, category management, or word addition
-        const practiceState = practiceStates.get(chatId);
-        const categoryState = categoryStates.get(chatId);
-
-        if (practiceState?.isWaitingForAnswer) {
-          await handlePractice(bot, supabase, userSettingsService)(msg);
-        } else if (categoryState) {
-          await handleCategory(bot, supabase, userSettingsService)(msg);
-        } else {
-          await handleAddWord(bot, supabase, userSettingsService)(msg);
-        }
+        // If no specific command/button, handle word addition
+        await handleAddWord(bot, supabase, userSettingsService)(msg);
     }
   } catch (error) {
     console.error('Error handling message:', error);
