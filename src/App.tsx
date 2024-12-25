@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from './config/supabase';
 import { Languages, BookOpen, Plus, RotateCcw, Award, LogOut, Shield } from 'lucide-react';
 import WordList from './components/WordList';

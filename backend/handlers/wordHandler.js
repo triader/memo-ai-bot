@@ -2,39 +2,79 @@ import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 
 const userStates = new Map();
 
+// Add this new function to create category keyboard
+const createCategoryKeyboard = (categories) => {
+  const keyboard = categories.map((cat) => [
+    {
+      text: cat.name,
+    },
+  ]);
+
+  // Add a cancel button at the bottom
+  keyboard.push([{ text: '❌ Cancel' }]);
+
+  return {
+    keyboard,
+    resize_keyboard: true,
+    one_time_keyboard: true,
+  };
+};
+
 export const handleAddWord = (bot, supabase) => async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   const text = msg.text;
 
   try {
+    // First, ensure user exists in telegram_users table
+    const { data: existingUser, error: userError } = await supabase
+      .from('telegram_users')
+      .select('*')
+      .eq('telegram_id', userId)
+      .single();
+
+    if (!existingUser) {
+      // Create new user if doesn't exist
+      const { error: createError } = await supabase.from('telegram_users').insert([
+        {
+          telegram_id: userId,
+          username: msg.from.username,
+          first_name: msg.from.first_name,
+          last_name: msg.from.last_name,
+        },
+      ]);
+
+      if (createError) throw createError;
+    }
+
     // Handle initial command
     if (text === '/add' || text === '📝 Add Word') {
-      // First, fetch categories
       const { data: categories } = await supabase
         .from('categories')
         .select('*')
         .eq('user_id', userId);
-      console.log("chat id", chatId);
-      console.log("user id", userId);
-console.log("available categories", categories);
-      userStates.set(chatId, { step: 'selecting_category' });
-      
-      let message = 'Choose a category or create a new one:\n\n';
-      if (categories?.length) {
-        message += categories.map((cat, i) => `${i + 1}. ${cat.name}`).join('\n');
-        message += '\n\n✨ Or type a new category name to create one';
-      } else {
-        message += 'Type a category name to create your first category';
-      }
 
-      await bot.sendMessage(chatId, message, cancelKeyboard);
+      userStates.set(chatId, { step: 'selecting_category' });
+
+      let message;
+      if (categories?.length) {
+        message = 'Choose a category or type a new category name:';
+        // Create custom keyboard with categories
+        const categoryKeyboard = createCategoryKeyboard(categories);
+        await bot.sendMessage(chatId, message, { reply_markup: categoryKeyboard });
+      } else {
+        message = 'You have no categories yet. Please enter a name for your first category:';
+        userStates.set(chatId, {
+          step: 'creating_category',
+        });
+        await bot.sendMessage(chatId, message, cancelKeyboard);
+      }
       return;
     }
 
     // Get current state
     const userState = userStates.get(chatId);
-    
+
     if (!userState) {
       console.log('No state found for chat:', chatId);
       return;
@@ -55,22 +95,18 @@ console.log("available categories", categories);
           .select('*')
           .eq('user_id', userId);
 
-        let selectedCategory;
-        
-        // Check if user selected existing category by number
-        if (/^\d+$/.test(text)) {
-          const index = parseInt(text) - 1;
-          selectedCategory = categories?.[index];
-        }
-        
+        let selectedCategory = categories?.find((cat) => cat.name === text);
+
         if (!selectedCategory) {
-          // Create new category
+          // Create new category if text doesn't match existing category
           const { data: newCategory, error: categoryError } = await supabase
             .from('categories')
-            .insert([{
-              user_id: userId,
-              name: text.trim()
-            }])
+            .insert([
+              {
+                user_id: userId,
+                name: text.trim(),
+              },
+            ])
             .select()
             .single();
 
@@ -78,12 +114,12 @@ console.log("available categories", categories);
           selectedCategory = newCategory;
         }
 
-        userStates.set(chatId, { 
+        userStates.set(chatId, {
           step: 'waiting_word',
           categoryId: selectedCategory.id,
-          categoryName: selectedCategory.name
+          categoryName: selectedCategory.name,
         });
-        
+
         await bot.sendMessage(
           chatId,
           `Category: ${selectedCategory.name}\nPlease enter the word you want to add:`,
@@ -93,18 +129,18 @@ console.log("available categories", categories);
 
       case 'waiting_word':
         const word = text.trim();
-        
+
         if (!word) {
           await bot.sendMessage(chatId, 'Please enter a valid word.', cancelKeyboard);
           return;
         }
 
-        userStates.set(chatId, { 
+        userStates.set(chatId, {
           ...userState,
           step: 'waiting_translation',
-          word: word 
+          word: word,
         });
-        
+
         await bot.sendMessage(
           chatId,
           `Great! Now enter the translation for "${word}":`,
@@ -114,21 +150,21 @@ console.log("available categories", categories);
 
       case 'waiting_translation':
         const translation = text.trim();
-        
+
         if (!translation) {
           await bot.sendMessage(chatId, 'Please enter a valid translation.', cancelKeyboard);
           return;
         }
 
-        const { error } = await supabase
-          .from('words')
-          .insert([{
+        const { error } = await supabase.from('words').insert([
+          {
             user_id: userId,
             category_id: userState.categoryId,
             word: userState.word,
             translation: translation,
-            created_at: new Date()
-          }]);
+            created_at: new Date(),
+          },
+        ]);
 
         if (error) throw error;
 
@@ -140,22 +176,59 @@ console.log("available categories", categories);
         );
         break;
 
+      case 'creating_category':
+        try {
+          const categoryName = text.trim();
+
+          if (!categoryName) {
+            await bot.sendMessage(chatId, 'Please enter a valid category name.', cancelKeyboard);
+            return;
+          }
+
+          // Create new category
+          const { data: newCategory, error: categoryError } = await supabase
+            .from('categories')
+            .insert([
+              {
+                user_id: userId,
+                name: categoryName,
+              },
+            ])
+            .select()
+            .single();
+
+          if (categoryError) throw categoryError;
+
+          userStates.set(chatId, {
+            step: 'waiting_word',
+            categoryId: newCategory.id,
+            categoryName: newCategory.name,
+          });
+
+          await bot.sendMessage(
+            chatId,
+            `Category "${newCategory.name}" created!\nPlease enter the word you want to add:`,
+            cancelKeyboard
+          );
+        } catch (error) {
+          console.error('Error creating category:', error);
+          await bot.sendMessage(
+            chatId,
+            '❌ Failed to create category. Please try again.',
+            mainKeyboard
+          );
+          userStates.delete(chatId);
+        }
+        break;
+
       default:
         console.error('Invalid state:', userState.step);
         userStates.delete(chatId);
-        await bot.sendMessage(
-          chatId,
-          '❌ Something went wrong. Please try again.',
-          mainKeyboard
-        );
+        await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', mainKeyboard);
     }
   } catch (error) {
     console.error('Error in word handler:', error);
     userStates.delete(chatId);
-    await bot.sendMessage(
-      chatId,
-      '❌ Failed to add word. Please try again.',
-      mainKeyboard
-    );
+    await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', mainKeyboard);
   }
 };
