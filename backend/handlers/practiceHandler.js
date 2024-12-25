@@ -118,15 +118,23 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
       previousWords
     });
 
-    // Get words for practice, excluding previously practiced ones
+    // Get current timestamp minus 24 hours
+    const oneDayAgo = new Date();
+    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+
+    // Get words for practice, excluding:
+    // 1. Previously practiced ones in this session
+    // 2. Words practiced in the last 24 hours
+    // 3. Words with mastery level >= 90
     const { data: words, error } = await supabase
       .from('words')
       .select('*')
       .eq('user_id', userId)
       .eq('category_id', currentCategory.id)
       .lt('mastery_level', 90)
-      .order('last_practiced', { ascending: true })
+      .or(`last_practiced.is.null,last_practiced.lt.${oneDayAgo.toISOString()}`)
       .not('id', 'in', `(${previousWords.join(',')})`)
+      .order('last_practiced', { ascending: true, nullsFirst: true })
       .limit(1);
 
     console.log('Query result:', { words, error });
