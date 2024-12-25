@@ -18,7 +18,7 @@ function App() {
     checkUser();
 
     const {
-      data: { subscription },
+      data: { subscription }
     } = supabase.auth.onAuthStateChange((event, session) => {
       setUserId(session?.user?.id ?? null);
       checkAdminStatus(session?.user?.id);
@@ -31,7 +31,7 @@ function App() {
   async function checkUser() {
     try {
       const {
-        data: { session },
+        data: { session }
       } = await supabase.auth.getSession();
       setUserId(session?.user?.id ?? null);
       await checkAdminStatus(session?.user?.id);

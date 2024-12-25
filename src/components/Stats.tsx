@@ -14,7 +14,7 @@ export default function Stats({ userId }: { userId: string }) {
     total_words: 0,
     mastered_words: 0,
     total_correct: 0,
-    total_incorrect: 0,
+    total_incorrect: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +33,7 @@ export default function Stats({ userId }: { userId: string }) {
           total_words: acc.total_words + 1,
           mastered_words: acc.mastered_words + (word.mastery_level >= 90 ? 1 : 0),
           total_correct: acc.total_correct + (word.correct_answers || 0),
-          total_incorrect: acc.total_incorrect + (word.incorrect_answers || 0),
+          total_incorrect: acc.total_incorrect + (word.incorrect_answers || 0)
         }),
         { total_words: 0, mastered_words: 0, total_correct: 0, total_incorrect: 0 }
       );

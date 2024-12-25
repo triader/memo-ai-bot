@@ -24,8 +24,8 @@ export default function AddWordForm({ userId }: { userId: string }) {
           user_id: userId,
           word: word.trim(),
           translation: translation.trim(),
-          category_id: categoryId,
-        },
+          category_id: categoryId
+        }
       ]);
 
       if (error) throw error;

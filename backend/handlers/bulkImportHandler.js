@@ -1,123 +1,156 @@
-import * as XLSX from 'xlsx';
+import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
+import { CategoryService } from '../services/categoryService.js';
+import { ExcelProcessor } from '../services/excelProcessor.js';
 
-export const handleBulkImport = (bot, supabase) => async (msg) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-  
-  if (!msg.document || !msg.document.mime_type.includes('spreadsheet')) {
-    await bot.sendMessage(chatId, 'Please send an Excel file (.xlsx or .xls)');
-    return;
-  }
+const userStates = new Map();
 
-  try {
-    // First, fetch categories
-    const { data: categories } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('user_id', userId);
-
-    let message = 'Choose a category for import or create a new one:\n\n';
-    if (categories?.length) {
-      message += categories.map((cat, i) => `${i + 1}. ${cat.name}`).join('\n');
-      message += '\n\n✨ Or type a new category name to create one';
-    } else {
-      message += 'Type a category name to create your first category';
+const createCategoryKeyboard = (categories) => {
+  const keyboard = categories.map((cat) => [
+    {
+      text: cat.name
     }
+  ]);
 
-    // Get file from Telegram
-    const file = await bot.getFile(msg.document.file_id);
-    const filePath = file.file_path;
-    const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${filePath}`;
-    
-    // Download and process file
-    const fileResponse = await fetch(fileUrl);
-    const arrayBuffer = await fileResponse.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer);
-    
-    // Get first worksheet
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(worksheet);
-    
-    if (!data.length) {
-      await bot.sendMessage(chatId, '❌ The Excel file is empty.');
-      return;
-    }
+  keyboard.push([{ text: '❌ Cancel' }]);
 
-    // Validate data format
-    const isValidFormat = data.every(row => row.word && row.translation);
-    if (!isValidFormat) {
-      await bot.sendMessage(
-        chatId, 
-        '❌ Invalid file format. The Excel file should have columns named "word" and "translation".'
-      );
-      return;
-    }
+  return {
+    keyboard,
+    resize_keyboard: true,
+    one_time_keyboard: true
+  };
+};
 
-    // Ask for category
-    await bot.sendMessage(chatId, message);
-    
-    // Wait for category selection
-    bot.once('message', async (categoryMsg) => {
-      try {
-        let selectedCategory;
-        
-        // Check if user selected existing category by number
-        if (/^\d+$/.test(categoryMsg.text)) {
-          const index = parseInt(categoryMsg.text) - 1;
-          selectedCategory = categories?.[index];
+export const handleBulkImport = (bot, supabase) => {
+  const categoryService = new CategoryService(supabase);
+
+  return async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const text = msg.text;
+
+    try {
+      // Handle initial command
+      if (text === '/import' || text === '📥 Import') {
+        const categories = await categoryService.getUserCategories(userId);
+
+        userStates.set(chatId, { step: 'selecting_category' });
+
+        let message;
+        if (categories?.length) {
+          message = 'Choose a category or type a new category name:';
+          const categoryKeyboard = createCategoryKeyboard(categories);
+          await bot.sendMessage(chatId, message, { reply_markup: categoryKeyboard });
+        } else {
+          message = 'You have no categories yet. Please enter a name for your first category:';
+          await bot.sendMessage(chatId, message, cancelKeyboard);
         }
-        
-        if (!selectedCategory) {
-          // Create new category
-          const { data: newCategory, error: categoryError } = await supabase
-            .from('categories')
-            .insert([{
-              user_id: userId,
-              name: categoryMsg.text.trim()
-            }])
-            .select()
-            .single();
-
-          if (categoryError) throw categoryError;
-          selectedCategory = newCategory;
-        }
-
-        // Prepare words for insertion
-        const words = data.map(row => ({
-          user_id: userId,
-          category_id: selectedCategory.id,
-          word: row.word.trim(),
-          translation: row.translation.trim(),
-          created_at: new Date()
-        }));
-
-        // Insert words into database
-        const { error } = await supabase
-          .from('words')
-          .insert(words);
-
-        if (error) throw error;
-
-        await bot.sendMessage(
-          chatId, 
-          `✅ Successfully imported ${words.length} words to category "${selectedCategory.name}"!`,
-          mainKeyboard
-        );
-      } catch (error) {
-        console.error('Category selection error:', error);
-        await bot.sendMessage(
-          chatId,
-          '❌ Failed to process category selection. Please try again.',
-          mainKeyboard
-        );
+        return;
       }
-    });
 
-  } catch (error) {
-    console.error('Bulk import error:', error);
-    await bot.sendMessage(
-      chatId, 
-      '❌ Failed to process the Excel file. Please make sure it\'s properly formatted.'
-    );
-  }
+      // Get current state
+      const userState = userStates.get(chatId);
+
+      if (!userState) {
+        console.log('No state found for chat:', chatId);
+        return;
+      }
+
+      // Handle cancel command in any state
+      if (text === '❌ Cancel') {
+        userStates.delete(chatId);
+        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
+        return;
+      }
+
+      // Handle state-specific logic
+      switch (userState.step) {
+        case 'selecting_category':
+          const categories = await categoryService.getUserCategories(userId);
+          const selectedCategory = categories.find((cat) => cat.name === text);
+
+          try {
+            const category =
+              selectedCategory || (await categoryService.createCategory(userId, text));
+
+            userStates.set(chatId, {
+              step: 'waiting_for_file',
+              selectedCategory: category
+            });
+
+            const message = selectedCategory
+              ? `Category "${category.name}" selected.`
+              : `Category "${category.name}" created.`;
+
+            await bot.sendMessage(
+              chatId,
+              `${message} Please send your Excel file (.xlsx or .xls) with columns "word" and "translation".`,
+              cancelKeyboard
+            );
+          } catch (error) {
+            console.error('Error in category selection:', error);
+            await bot.sendMessage(
+              chatId,
+              '❌ Failed to process category. Please try again.',
+              mainKeyboard
+            );
+            userStates.delete(chatId);
+          }
+          break;
+
+        case 'waiting_for_file':
+          if (!msg.document) {
+            await bot.sendMessage(
+              chatId,
+              'Please send an Excel file (.xlsx or .xls)',
+              cancelKeyboard
+            );
+            return;
+          }
+
+          if (!msg.document.mime_type.includes('spreadsheet')) {
+            await bot.sendMessage(chatId, 'Please send an Excel file (.xlsx or .xls)');
+            return;
+          }
+
+          try {
+            const file = await bot.getFile(msg.document.file_id);
+            const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
+
+            const data = await ExcelProcessor.processFile(fileUrl);
+            ExcelProcessor.validateData(data);
+
+            const words = ExcelProcessor.prepareWords(data, userId, userState.selectedCategory.id);
+
+            const { error } = await supabase.from('words').insert(words);
+            if (error) throw error;
+
+            await bot.sendMessage(
+              chatId,
+              `✅ Successfully imported ${words.length} words to category "${userState.selectedCategory.name}"!`,
+              mainKeyboard
+            );
+          } catch (error) {
+            console.error('Import error:', error);
+            await bot.sendMessage(
+              chatId,
+              error.message ||
+                "❌ Failed to process the Excel file. Please make sure it's properly formatted.",
+              mainKeyboard
+            );
+          } finally {
+            userStates.delete(chatId);
+          }
+          break;
+
+        default:
+          console.error('Invalid state:', userState.step);
+          userStates.delete(chatId);
+          await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', mainKeyboard);
+      }
+    } catch (error) {
+      console.error('Error in bulk import handler:', error);
+      userStates.delete(chatId);
+      await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', mainKeyboard);
+    }
+  };
 };

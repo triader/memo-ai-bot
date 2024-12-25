@@ -8,7 +8,11 @@ import { handleStart } from './handlers/startHandler.js';
 import { handleAddWord } from './handlers/wordHandler.js';
 import { handlePractice } from './handlers/practiceHandler.js';
 import { handleBulkImport } from './handlers/bulkImportHandler.js';
-import { handleMyWords, handleWordEdit, handleWordDelete } from './handlers/wordManagementHandler.js';
+import {
+  handleMyWords,
+  handleWordEdit,
+  handleWordDelete,
+} from './handlers/wordManagementHandler.js';
 import { handleDeleteCommand } from './handlers/deleteWordHandler.js';
 import { mainKeyboard, cancelKeyboard } from './utils/keyboards.js';
 
@@ -24,19 +28,21 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 const app = express();
 
 // Enable CORS with specific options
-app.use(cors({
-  origin: true,
-  methods: ['POST'],
-  allowedHeaders: ['Content-Type']
-}));
+app.use(
+  cors({
+    origin: true,
+    methods: ['POST'],
+    allowedHeaders: ['Content-Type'],
+  })
+);
 app.use(express.json());
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
   });
 });
 
@@ -44,15 +50,15 @@ app.use((err, req, res, next) => {
 app.post('/bot/command', async (req, res) => {
   try {
     const { command, userId } = req.body;
-    
+
     if (!command || !userId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    
+
     const msg = {
       text: command,
       chat: { id: userId },
-      from: { id: userId }
+      from: { id: userId },
     };
 
     switch (command) {
@@ -92,7 +98,7 @@ bot.on('message', async (msg) => {
           break;
         default:
           await bot.sendMessage(
-            chatId, 
+            chatId,
             '❓ Unknown command. Please use the menu buttons below.',
             mainKeyboard
           );
@@ -105,11 +111,8 @@ bot.on('message', async (msg) => {
       case '📝 Add Word':
         await handleAddWord(bot, supabase)(msg);
         break;
-      case '📥 Bulk Import':
-        await bot.sendMessage(
-          chatId,
-          'Please upload an Excel file (.xlsx or .xls) with columns "word" and "translation"'
-        );
+      case '📥 Import':
+        await handleBulkImport(bot, supabase)(msg);
         break;
       case '🎯 Practice':
         await handlePractice(bot, supabase)(msg);
@@ -121,23 +124,19 @@ bot.on('message', async (msg) => {
         await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
         break;
       default:
-        // Handle document uploads for bulk import
+        // Handle document uploads for import
         if (msg.document) {
           await handleBulkImport(bot, supabase)(msg);
           return;
         }
-        
+
         // Handle word addition flow
         await handleAddWord(bot, supabase)(msg);
     }
   } catch (error) {
     console.error('Error handling message:', error);
     try {
-      await bot.sendMessage(
-        msg.chat.id,
-        '❌ An error occurred. Please try again.',
-        mainKeyboard
-      );
+      await bot.sendMessage(msg.chat.id, '❌ An error occurred. Please try again.', mainKeyboard);
     } catch (sendError) {
       console.error('Error sending error message:', sendError);
     }

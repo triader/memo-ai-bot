@@ -20,7 +20,7 @@ export default function LoginForm({ onSuccess, onToggleView }: LoginFormProps) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       });
 
       if (error) throw error;

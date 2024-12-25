@@ -22,8 +22,8 @@ export default function SignupForm({ onSuccess, onToggleView }: SignupFormProps)
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin,
-        },
+          emailRedirectTo: window.location.origin
+        }
       });
 
       if (error) throw error;

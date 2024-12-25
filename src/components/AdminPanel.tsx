@@ -23,7 +23,7 @@ export default function AdminPanel() {
 
   async function checkAdminStatus() {
     const {
-      data: { user },
+      data: { user }
     } = await supabase.auth.getUser();
     if (user) {
       const { data, error } = await supabase

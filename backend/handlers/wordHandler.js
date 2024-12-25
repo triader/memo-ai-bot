@@ -6,8 +6,8 @@ const userStates = new Map();
 const createCategoryKeyboard = (categories) => {
   const keyboard = categories.map((cat) => [
     {
-      text: cat.name,
-    },
+      text: cat.name
+    }
   ]);
 
   // Add a cancel button at the bottom
@@ -16,7 +16,7 @@ const createCategoryKeyboard = (categories) => {
   return {
     keyboard,
     resize_keyboard: true,
-    one_time_keyboard: true,
+    one_time_keyboard: true
   };
 };
 
@@ -40,8 +40,8 @@ export const handleAddWord = (bot, supabase) => async (msg) => {
           telegram_id: userId,
           username: msg.from.username,
           first_name: msg.from.first_name,
-          last_name: msg.from.last_name,
-        },
+          last_name: msg.from.last_name
+        }
       ]);
 
       if (createError) throw createError;
@@ -65,7 +65,7 @@ export const handleAddWord = (bot, supabase) => async (msg) => {
       } else {
         message = 'You have no categories yet. Please enter a name for your first category:';
         userStates.set(chatId, {
-          step: 'creating_category',
+          step: 'creating_category'
         });
         await bot.sendMessage(chatId, message, cancelKeyboard);
       }
@@ -104,8 +104,8 @@ export const handleAddWord = (bot, supabase) => async (msg) => {
             .insert([
               {
                 user_id: userId,
-                name: text.trim(),
-              },
+                name: text.trim()
+              }
             ])
             .select()
             .single();
@@ -117,7 +117,7 @@ export const handleAddWord = (bot, supabase) => async (msg) => {
         userStates.set(chatId, {
           step: 'waiting_word',
           categoryId: selectedCategory.id,
-          categoryName: selectedCategory.name,
+          categoryName: selectedCategory.name
         });
 
         await bot.sendMessage(
@@ -138,7 +138,7 @@ export const handleAddWord = (bot, supabase) => async (msg) => {
         userStates.set(chatId, {
           ...userState,
           step: 'waiting_translation',
-          word: word,
+          word: word
         });
 
         await bot.sendMessage(
@@ -162,8 +162,8 @@ export const handleAddWord = (bot, supabase) => async (msg) => {
             category_id: userState.categoryId,
             word: userState.word,
             translation: translation,
-            created_at: new Date(),
-          },
+            created_at: new Date()
+          }
         ]);
 
         if (error) throw error;
@@ -191,8 +191,8 @@ export const handleAddWord = (bot, supabase) => async (msg) => {
             .insert([
               {
                 user_id: userId,
-                name: categoryName,
-              },
+                name: categoryName
+              }
             ])
             .select()
             .single();
@@ -202,7 +202,7 @@ export const handleAddWord = (bot, supabase) => async (msg) => {
           userStates.set(chatId, {
             step: 'waiting_word',
             categoryId: newCategory.id,
-            categoryName: newCategory.name,
+            categoryName: newCategory.name
           });
 
           await bot.sendMessage(

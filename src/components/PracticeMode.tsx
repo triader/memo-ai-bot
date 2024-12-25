@@ -55,7 +55,7 @@ export default function PracticeMode({ userId }: { userId: string }) {
     try {
       await supabase.rpc('update_word_progress', {
         p_word_id: currentWord.id,
-        p_is_correct: isCorrect,
+        p_is_correct: isCorrect
       });
 
       setTimeout(() => {
