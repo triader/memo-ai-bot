@@ -1,8 +1,4 @@
-import {
-  createWordActionsKeyboard,
-  mainKeyboardPrimary,
-  cancelKeyboard
-} from '../utils/keyboards.js';
+import { createWordActionsKeyboard, mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 
 export const handleMyWords = (bot, supabase, userSettingsService) => {
   return async (msg) => {
@@ -13,7 +9,7 @@ export const handleMyWords = (bot, supabase, userSettingsService) => {
       const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
       if (!currentCategory) {
-        await bot.sendMessage(chatId, 'You need to add some words first!', mainKeyboardPrimary);
+        await bot.sendMessage(chatId, 'You need to add some words first!', mainKeyboard);
         return;
       }
 
@@ -31,7 +27,7 @@ export const handleMyWords = (bot, supabase, userSettingsService) => {
         await bot.sendMessage(
           chatId,
           `No words found in category "${currentCategory.name}". Add some words first!`,
-          mainKeyboardPrimary
+          mainKeyboard
         );
         return;
       }
@@ -61,14 +57,10 @@ export const handleMyWords = (bot, supabase, userSettingsService) => {
         `📈 - Learning (50-89%)\n` +
         `🔄 - Needs practice (0-49%)`;
 
-      await bot.sendMessage(chatId, message, mainKeyboardPrimary);
+      await bot.sendMessage(chatId, message, mainKeyboard);
     } catch (error) {
       console.error('Error fetching words:', error);
-      await bot.sendMessage(
-        chatId,
-        '❌ Failed to fetch words. Please try again.',
-        mainKeyboardPrimary
-      );
+      await bot.sendMessage(chatId, '❌ Failed to fetch words. Please try again.', mainKeyboard);
     }
   };
 };
@@ -82,7 +74,7 @@ export const handleWordDelete = (bot, supabase) => async (msg, wordId) => {
 
     if (error) throw error;
 
-    await bot.sendMessage(chatId, '✅ Word deleted successfully.', mainKeyboardPrimary);
+    await bot.sendMessage(chatId, '✅ Word deleted successfully.', mainKeyboard);
   } catch (error) {
     console.error('Error deleting word:', error);
     await bot.sendMessage(chatId, '❌ Failed to delete word.');

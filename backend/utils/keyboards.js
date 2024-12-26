@@ -1,4 +1,4 @@
-export const mainKeyboardPrimary = {
+export const mainKeyboard = {
   reply_markup: {
     keyboard: [
       [{ text: '📝 Add Word' }, { text: '📚 My Words' }],
@@ -8,6 +8,10 @@ export const mainKeyboardPrimary = {
     resize_keyboard: true
   }
 };
+
+if (process.env.ENVIRONMENT === 'development') {
+  mainKeyboard.reply_markup.keyboard.push([{ text: 'This is DEV' }]);
+}
 
 export const mainKeyboardSecondary = {
   reply_markup: {

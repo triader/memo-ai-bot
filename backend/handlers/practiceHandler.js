@@ -1,6 +1,6 @@
 import { generateSentence } from '../utils/openai.js';
 import { updateWordProgress } from './wordProgressHandler.js';
-import { mainKeyboardPrimary as mainKeyboard } from '../utils/keyboards.js';
+import { mainKeyboard } from '../utils/keyboards.js';
 import { MESSAGES, EMOJIS } from '../constants/messages.js';
 
 // Constants
@@ -282,6 +282,7 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
             MESSAGES.ERRORS.NO_PRACTICE_WORDS(state.currentCategory.name),
             mainKeyboard
           );
+          practiceStates.delete(chatId);
           return;
         }
 

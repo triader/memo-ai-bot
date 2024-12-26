@@ -1,4 +1,4 @@
-import { mainKeyboardPrimary } from '../utils/keyboards.js';
+import { mainKeyboard } from '../utils/keyboards.js';
 
 export const handleStart = (bot) => async (msg) => {
   const chatId = msg.chat.id;
@@ -13,5 +13,5 @@ Click the buttons below to:
 Let's start learning! 📚
 `;
 
-  await bot.sendMessage(chatId, message, mainKeyboardPrimary);
+  await bot.sendMessage(chatId, message, mainKeyboard);
 };

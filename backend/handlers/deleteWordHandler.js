@@ -1,5 +1,5 @@
 import { MESSAGES } from '../constants/messages.js';
-import { mainKeyboardPrimary as mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
+import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 
 // Store delete states
 export const deleteStates = new Map();

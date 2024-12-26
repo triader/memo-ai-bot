@@ -1,4 +1,4 @@
-import { mainKeyboardPrimary, cancelKeyboard } from '../utils/keyboards.js';
+import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
 import { UserService } from '../services/userService.js';
 
@@ -59,7 +59,7 @@ export const handleAddWord = (bot, supabase, userSettingsService) => {
       // Handle cancel command
       if (text === '❌ Cancel') {
         wordStates.delete(chatId);
-        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboardPrimary);
+        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
         return;
       }
 
@@ -135,27 +135,19 @@ export const handleAddWord = (bot, supabase, userSettingsService) => {
             await bot.sendMessage(
               chatId,
               `✅ Successfully added to category "${state.categoryName}":\n${state.word} - ${translation}`,
-              mainKeyboardPrimary
+              mainKeyboard
             );
             wordStates.delete(chatId);
           } catch (error) {
             console.error('Error adding word:', error);
-            await bot.sendMessage(
-              chatId,
-              '❌ Failed to add word. Please try again.',
-              mainKeyboardPrimary
-            );
+            await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', mainKeyboard);
             wordStates.delete(chatId);
           }
           break;
       }
     } catch (error) {
       console.error('Error in word handler:', error);
-      await bot.sendMessage(
-        chatId,
-        '❌ Failed to add word. Please try again.',
-        mainKeyboardPrimary
-      );
+      await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', mainKeyboard);
       wordStates.delete(chatId);
     }
   };

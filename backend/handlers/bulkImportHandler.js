@@ -1,4 +1,4 @@
-import { mainKeyboardPrimary, cancelKeyboard } from '../utils/keyboards.js';
+import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
 import { ExcelProcessor } from '../services/excelProcessor.js';
 
@@ -58,7 +58,7 @@ export const handleBulkImport = (bot, supabase) => {
       // Handle cancel command in any state
       if (text === '❌ Cancel') {
         userStates.delete(chatId);
-        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboardPrimary);
+        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
         return;
       }
 
@@ -91,7 +91,7 @@ export const handleBulkImport = (bot, supabase) => {
             await bot.sendMessage(
               chatId,
               '❌ Failed to process category. Please try again.',
-              mainKeyboardPrimary
+              mainKeyboard
             );
             userStates.delete(chatId);
           }
@@ -127,7 +127,7 @@ export const handleBulkImport = (bot, supabase) => {
             await bot.sendMessage(
               chatId,
               `✅ Successfully imported ${words.length} words to category "${userState.selectedCategory.name}"!`,
-              mainKeyboardPrimary
+              mainKeyboard
             );
           } catch (error) {
             console.error('Import error:', error);
@@ -135,7 +135,7 @@ export const handleBulkImport = (bot, supabase) => {
               chatId,
               error.message ||
                 "❌ Failed to process the Excel file. Please make sure it's properly formatted.",
-              mainKeyboardPrimary
+              mainKeyboard
             );
           } finally {
             userStates.delete(chatId);
@@ -145,20 +145,12 @@ export const handleBulkImport = (bot, supabase) => {
         default:
           console.error('Invalid state:', userState.step);
           userStates.delete(chatId);
-          await bot.sendMessage(
-            chatId,
-            '❌ Something went wrong. Please try again.',
-            mainKeyboardPrimary
-          );
+          await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', mainKeyboard);
       }
     } catch (error) {
       console.error('Error in bulk import handler:', error);
       userStates.delete(chatId);
-      await bot.sendMessage(
-        chatId,
-        '❌ Something went wrong. Please try again.',
-        mainKeyboardPrimary
-      );
+      await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', mainKeyboard);
     }
   };
 };
