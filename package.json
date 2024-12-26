@@ -6,7 +6,7 @@
   "scripts": {
     "dev:frontend": "vite",
     "dev:backend": "node --watch backend/server.js",
-    "start": "node backend/server.js",
+    "start": "concurrently \"npm run node backend/server.js\" \"npm run vite\"",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build": "vite build",
     "lint": "eslint .",
