@@ -9,7 +9,7 @@ import { handleAddWord } from './handlers/wordHandler.js';
 import { handlePractice, practiceStates } from './handlers/practiceHandler.js';
 import { handleBulkImport } from './handlers/bulkImportHandler.js';
 import { handleMyWords, handleWordDelete } from './handlers/wordManagementHandler.js';
-import { handleDeleteCommand } from './handlers/deleteWordHandler.js';
+import { handleDeleteCommand, deleteStates } from './handlers/deleteWordHandler.js';
 import { mainKeyboard, cancelKeyboard } from './utils/keyboards.js';
 import { UserSettingsService } from './services/userSettingsService.js';
 import { handleCategory, categoryStates } from './handlers/categoryHandler.js';
@@ -98,6 +98,14 @@ bot.on('message', async (msg) => {
       return;
     }
 
+    // Check for active delete state and handle word input
+    const deleteHandler = handleDeleteCommand(bot, supabase);
+    const deleteState = deleteStates.get(chatId);
+    if (deleteState) {
+      await deleteHandler(msg);
+      return;
+    }
+
     // If message is a command, handle it
     if (text?.startsWith('/')) {
       const parsedCommand = parseCommand(text);
@@ -158,6 +166,9 @@ bot.on('message', async (msg) => {
         break;
       case '✏️ Edit word':
         await editHandler(msg);
+        break;
+      case '🗑️ Delete word':
+        await deleteHandler(msg);
         break;
       default:
         // Handle document uploads for import

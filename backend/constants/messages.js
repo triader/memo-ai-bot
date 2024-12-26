@@ -11,14 +11,16 @@ export const MESSAGES = {
     NO_MORE_WORDS: 'No more words available for practice in this category.',
     INVALID_PRACTICE_TYPE: '❌ Please select a valid practice type or cancel.',
     WORD_NOT_FOUND: '❌ Word not found. Please try again.',
-    EDIT_CANCELLED: '❌ Edit cancelled.'
+    EDIT_CANCELLED: '❌ Edit cancelled.',
+    DELETE_CANCELLED: '❌ Delete cancelled.'
   },
 
   SUCCESS: {
     PRACTICE_COMPLETE: '🎉 Practice session complete!',
     CORRECT_ANSWER: '✅ Correct!',
     WRONG_ANSWER: (correctAnswer) => `❌ Wrong. The correct answer is: ${correctAnswer}`,
-    WORD_UPDATED: '✅ Word has been updated successfully!'
+    WORD_UPDATED: '✅ Word has been updated successfully!',
+    WORD_DELETED: (word) => `✅ Word "${word}" has been deleted.`
   },
 
   ACTIONS: {
@@ -34,7 +36,8 @@ export const MESSAGES = {
     EDIT_WHICH_WORD: 'Which word would you like to edit?',
     ENTER_NEW_WORD: (oldWord) => `Current word is "${oldWord}". Please enter the new word:`,
     ENTER_NEW_TRANSLATION: (oldTranslation) =>
-      `Current translation is "${oldTranslation}". Please enter the new translation:`
+      `Current translation is "${oldTranslation}". Please enter the new translation:`,
+    DELETE_WHICH_WORD: 'Which word would you like to delete?'
   },
 
   PRACTICE_SUMMARY: {

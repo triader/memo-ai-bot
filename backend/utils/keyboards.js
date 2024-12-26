@@ -1,12 +1,11 @@
 export const mainKeyboard = {
   reply_markup: {
     keyboard: [
-      [{ text: '📝 Add Word' }, { text: '🎯 Practice' }],
-      [{ text: '📚 My Words' }, { text: '📥 Import' }],
-      [{ text: '🔄 Change Category' }, { text: '✏️ Edit word' }]
+      [{ text: '📝 Add Word' }, { text: '✏️ Edit word' }, { text: '🗑️ Delete word' }],
+      [{ text: '📚 My Words' }, { text: '📥 Import' }, { text: '🔄 Change Category' }],
+      [{ text: '🎯 Practice' }]
     ],
-    resize_keyboard: true,
-    persistent: true
+    resize_keyboard: true
   }
 };
 
