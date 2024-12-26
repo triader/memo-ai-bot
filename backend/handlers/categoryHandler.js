@@ -1,4 +1,4 @@
-import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
+import { mainKeyboardPrimary, cancelKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
 
 // Store category management states
@@ -62,7 +62,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
       // Handle cancel
       if (text === '❌ Cancel') {
         categoryStates.delete(chatId);
-        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
+        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboardPrimary);
         return;
       }
 
@@ -89,7 +89,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
               await bot.sendMessage(
                 chatId,
                 "❌ Can't delete the last category. Create a new category first.",
-                mainKeyboard
+                mainKeyboardPrimary
               );
               categoryStates.delete(chatId);
               return;
@@ -117,7 +117,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
           await bot.sendMessage(
             chatId,
             `✅ Current category changed to "${selectedCategory.name}"`,
-            mainKeyboard
+            mainKeyboardPrimary
           );
           break;
 
@@ -183,7 +183,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
             await bot.sendMessage(
               chatId,
               `✅ Category "${catToDelete.name}" and all its words have been deleted.`,
-              mainKeyboard
+              mainKeyboardPrimary
             );
             categoryStates.delete(chatId);
           } catch (error) {
@@ -191,7 +191,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
             await bot.sendMessage(
               chatId,
               '❌ Failed to delete category. Please try again.',
-              mainKeyboard
+              mainKeyboardPrimary
             );
             categoryStates.delete(chatId);
           }
@@ -210,7 +210,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
           await bot.sendMessage(
             chatId,
             `✅ Category "${category.name}" created and set as current category!`,
-            mainKeyboard
+            mainKeyboardPrimary
           );
           break;
       }
@@ -219,7 +219,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
       await bot.sendMessage(
         chatId,
         '❌ Failed to process category. Please try again.',
-        mainKeyboard
+        mainKeyboardPrimary
       );
       categoryStates.delete(chatId);
     }

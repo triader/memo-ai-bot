@@ -10,7 +10,7 @@ import { handlePractice, practiceStates } from './handlers/practiceHandler.js';
 import { handleBulkImport } from './handlers/bulkImportHandler.js';
 import { handleMyWords, handleWordDelete } from './handlers/wordManagementHandler.js';
 import { handleDeleteCommand, deleteStates } from './handlers/deleteWordHandler.js';
-import { mainKeyboard, cancelKeyboard } from './utils/keyboards.js';
+import { mainKeyboardPrimary, mainKeyboardSecondary, cancelKeyboard } from './utils/keyboards.js';
 import { UserSettingsService } from './services/userSettingsService.js';
 import { handleCategory, categoryStates } from './handlers/categoryHandler.js';
 import { handleWordEdit } from './handlers/wordEditHandler.js';
@@ -87,7 +87,8 @@ bot.on('message', async (msg) => {
     if (text === '❌ Cancel') {
       practiceStates.delete(chatId);
       categoryStates.delete(chatId);
-      await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
+      deleteStates.delete(chatId);
+      await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboardPrimary);
       return;
     }
 
@@ -136,7 +137,7 @@ bot.on('message', async (msg) => {
           await bot.sendMessage(
             chatId,
             '❓ Unknown command. Please use the menu buttons below.',
-            mainKeyboard
+            mainKeyboardPrimary
           );
       }
       return;
@@ -159,7 +160,7 @@ bot.on('message', async (msg) => {
         await handleMyWords(bot, supabase, userSettingsService)(msg);
         break;
       case '❌ Cancel':
-        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
+        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboardPrimary);
         break;
       case '🔄 Change Category':
         await handleCategory(bot, supabase, userSettingsService)(msg);
@@ -169,6 +170,12 @@ bot.on('message', async (msg) => {
         break;
       case '🗑️ Delete word':
         await deleteHandler(msg);
+        break;
+      case '⚙️ More options':
+        await bot.sendMessage(chatId, 'Additional options:', mainKeyboardSecondary);
+        break;
+      case '◀️ Back to main':
+        await bot.sendMessage(chatId, 'Main menu:', mainKeyboardPrimary);
         break;
       default:
         // Handle document uploads for import
@@ -188,7 +195,11 @@ bot.on('message', async (msg) => {
   } catch (error) {
     console.error('Error handling message:', error);
     try {
-      await bot.sendMessage(msg.chat.id, '❌ An error occurred. Please try again.', mainKeyboard);
+      await bot.sendMessage(
+        msg.chat.id,
+        '❌ An error occurred. Please try again.',
+        mainKeyboardPrimary
+      );
     } catch (sendError) {
       console.error('Error sending error message:', sendError);
     }
@@ -215,7 +226,7 @@ bot.on('callback_query', async (query) => {
       await bot.sendMessage(
         query.message.chat.id,
         '❌ An error occurred. Please try again.',
-        mainKeyboard
+        mainKeyboardPrimary
       );
     } catch (sendError) {
       console.error('Error sending error message:', sendError);

@@ -1,9 +1,20 @@
-export const mainKeyboard = {
+export const mainKeyboardPrimary = {
   reply_markup: {
     keyboard: [
-      [{ text: '📝 Add Word' }, { text: '✏️ Edit word' }, { text: '🗑️ Delete word' }],
-      [{ text: '📚 My Words' }, { text: '📥 Import' }, { text: '🔄 Change Category' }],
-      [{ text: '🎯 Practice' }]
+      [{ text: '📝 Add Word' }, { text: '📚 My Words' }],
+      [{ text: '🎯 Practice' }],
+      [{ text: '⚙️ More options' }]
+    ],
+    resize_keyboard: true
+  }
+};
+
+export const mainKeyboardSecondary = {
+  reply_markup: {
+    keyboard: [
+      [{ text: '✏️ Edit word' }, { text: '🗑️ Delete word' }],
+      [{ text: '📥 Import' }, { text: '🔄 Change Category' }],
+      [{ text: '◀️ Back to main' }]
     ],
     resize_keyboard: true
   }
