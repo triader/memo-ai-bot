@@ -99,6 +99,13 @@ bot.on('message', async (msg) => {
       return;
     }
 
+    // Check for active category state
+    const categoryState = categoryStates.get(chatId);
+    if (categoryState) {
+      await handleCategory(bot, supabase, userSettingsService)(msg);
+      return;
+    }
+
     // Check for active delete state and handle word input
     const deleteHandler = handleDeleteCommand(bot, supabase);
     const deleteState = deleteStates.get(chatId);

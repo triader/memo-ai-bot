@@ -30,7 +30,7 @@ export const handleAddWord = (bot, supabase, userSettingsService) => {
 
       // Handle initial command
       if (text === '/add' || text === '📝 Add Word') {
-        const currentCategory = await userSettingsService.getCurrentCategory(userId);
+        const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
         if (currentCategory) {
           // If user has a current category, start word addition directly
@@ -77,7 +77,7 @@ export const handleAddWord = (bot, supabase, userSettingsService) => {
           }
 
           const category = await categoryService.createCategory(userId, categoryName);
-          userSettingsService.setCurrentCategory(userId, category);
+          await userSettingsService.setCurrentCategory(userId, category.id);
 
           wordStates.set(chatId, {
             step: 'waiting_word',

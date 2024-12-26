@@ -13,16 +13,12 @@ const PRACTICE_TYPES = {
   FILL_BLANK: 'fill_blank'
 };
 
-console.log('Practice types:', PRACTICE_TYPES);
-
 const PRACTICE_TYPE_LABELS = {
   [PRACTICE_TYPES.RANDOM]: '🎲 Random Practice',
   [PRACTICE_TYPES.TRANSLATE]: '📝 Translation',
   [PRACTICE_TYPES.MULTIPLE_CHOICE]: '✅ Multiple Choice',
   [PRACTICE_TYPES.FILL_BLANK]: '📝 Fill in Blank'
 };
-
-console.log('Practice type labels:', PRACTICE_TYPE_LABELS);
 
 // Define cancel keyboard with skip button
 const cancelKeyboard = {
@@ -236,7 +232,7 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
 
       // Handle initial command
       if (text === '/practice' || text === '🎯 Practice') {
-        const currentCategory = await userSettingsService.getCurrentCategory(userId);
+        const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
         if (!currentCategory) {
           await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_WORDS, mainKeyboard);

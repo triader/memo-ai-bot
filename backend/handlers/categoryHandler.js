@@ -34,7 +34,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
       // Handle initial command
       if (text === '/category' || text === '🔄 Change Category') {
         const categories = await categoryService.getUserCategories(userId);
-        const currentCategory = await userSettingsService.getCurrentCategory(userId);
+        const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
         if (!categories?.length) {
           await bot.sendMessage(
@@ -55,6 +55,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
         await bot.sendMessage(chatId, message, {
           reply_markup: createCategoryKeyboard(categories, true, true)
         });
+
         categoryStates.set(chatId, { step: 'selecting_category' });
         return;
       }
@@ -111,8 +112,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
             });
             return;
           }
-
-          userSettingsService.setCurrentCategory(userId, selectedCategory);
+          await userSettingsService.setCurrentCategory(userId, selectedCategory.id);
           categoryStates.delete(chatId);
           await bot.sendMessage(
             chatId,
@@ -173,11 +173,11 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
               .eq('user_id', userId);
 
             // If this was the current category, set a different one as current
-            const currentCategory = await userSettingsService.getCurrentCategory(userId);
+            const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
             if (currentCategory?.id === catToDelete.id) {
               const categories = await categoryService.getUserCategories(userId);
               const remainingCategories = categories.filter((cat) => cat.id !== catToDelete.id);
-              userSettingsService.setCurrentCategory(userId, remainingCategories[0]);
+              await userSettingsService.setCurrentCategory(userId, remainingCategories[0].id);
             }
 
             await bot.sendMessage(
@@ -205,7 +205,7 @@ export const handleCategory = (bot, supabase, userSettingsService) => {
           }
 
           const category = await categoryService.createCategory(userId, categoryName);
-          userSettingsService.setCurrentCategory(userId, category);
+          await userSettingsService.setCurrentCategory(userId, category);
           categoryStates.delete(chatId);
           await bot.sendMessage(
             chatId,

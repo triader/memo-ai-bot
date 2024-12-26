@@ -2,7 +2,7 @@ export const mainKeyboardPrimary = {
   reply_markup: {
     keyboard: [
       [{ text: '📝 Add Word' }, { text: '📚 My Words' }],
-      [{ text: '🎯 Practice' }],
+      [{ text: '🎯 Practice' }, { text: '🔄 Change Category' }],
       [{ text: '⚙️ More options' }]
     ],
     resize_keyboard: true
@@ -13,7 +13,7 @@ export const mainKeyboardSecondary = {
   reply_markup: {
     keyboard: [
       [{ text: '✏️ Edit word' }, { text: '🗑️ Delete word' }],
-      [{ text: '📥 Import' }, { text: '🔄 Change Category' }],
+      [{ text: '📥 Import' }],
       [{ text: '◀️ Back to main' }]
     ],
     resize_keyboard: true
