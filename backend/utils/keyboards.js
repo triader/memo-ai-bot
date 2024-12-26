@@ -3,7 +3,7 @@ export const mainKeyboard = {
     keyboard: [
       [{ text: '📝 Add Word' }, { text: '🎯 Practice' }],
       [{ text: '📚 My Words' }, { text: '📥 Import' }],
-      [{ text: '🔄 Change Category' }]
+      [{ text: '🔄 Change Category' }, { text: '✏️ Edit word' }]
     ],
     resize_keyboard: true,
     persistent: true

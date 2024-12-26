@@ -8,15 +8,12 @@ import { handleStart } from './handlers/startHandler.js';
 import { handleAddWord } from './handlers/wordHandler.js';
 import { handlePractice, practiceStates } from './handlers/practiceHandler.js';
 import { handleBulkImport } from './handlers/bulkImportHandler.js';
-import {
-  handleMyWords,
-  handleWordEdit,
-  handleWordDelete
-} from './handlers/wordManagementHandler.js';
+import { handleMyWords, handleWordDelete } from './handlers/wordManagementHandler.js';
 import { handleDeleteCommand } from './handlers/deleteWordHandler.js';
 import { mainKeyboard, cancelKeyboard } from './utils/keyboards.js';
 import { UserSettingsService } from './services/userSettingsService.js';
 import { handleCategory, categoryStates } from './handlers/categoryHandler.js';
+import { handleWordEdit } from './handlers/wordEditHandler.js';
 
 // Load environment variables
 dotenv.config();
@@ -97,12 +94,11 @@ bot.on('message', async (msg) => {
     // First check if there's an active practice state
     const practiceState = practiceStates.get(chatId);
     if (practiceState) {
-      // Handle any practice-related message (type selection, answers, etc.)
       await handlePractice(bot, supabase, userSettingsService)(msg);
       return;
     }
 
-    // If no practice state, handle other commands/actions
+    // If message is a command, handle it
     if (text?.startsWith('/')) {
       const parsedCommand = parseCommand(text);
       switch (parsedCommand.command) {
@@ -124,6 +120,10 @@ bot.on('message', async (msg) => {
         case '/category':
           await handleCategory(bot, supabase, userSettingsService)(msg);
           break;
+        case '/edit':
+          const editHandler = handleWordEdit(bot, supabase);
+          await editHandler(msg);
+          break;
         default:
           await bot.sendMessage(
             chatId,
@@ -134,7 +134,9 @@ bot.on('message', async (msg) => {
       return;
     }
 
-    // Handle menu buttons
+    // Handle menu buttons and text input
+    const editHandler = handleWordEdit(bot, supabase);
+
     switch (text) {
       case '📝 Add Word':
         await handleAddWord(bot, supabase, userSettingsService)(msg);
@@ -154,6 +156,9 @@ bot.on('message', async (msg) => {
       case '🔄 Change Category':
         await handleCategory(bot, supabase, userSettingsService)(msg);
         break;
+      case '✏️ Edit word':
+        await editHandler(msg);
+        break;
       default:
         // Handle document uploads for import
         if (msg.document) {
@@ -161,8 +166,13 @@ bot.on('message', async (msg) => {
           return;
         }
 
-        // If no specific command/button, handle word addition
-        await handleAddWord(bot, supabase, userSettingsService)(msg);
+        // Try to handle as word edit input first
+        const handled = await editHandler(msg);
+
+        // If not handled by edit handler, treat as word addition
+        if (!handled) {
+          await handleAddWord(bot, supabase, userSettingsService)(msg);
+        }
     }
   } catch (error) {
     console.error('Error handling message:', error);

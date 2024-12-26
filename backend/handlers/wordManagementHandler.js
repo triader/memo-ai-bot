@@ -65,37 +65,6 @@ export const handleMyWords = (bot, supabase, userSettingsService) => {
   };
 };
 
-export const handleWordEdit = (bot, supabase) => async (msg, wordId) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-
-  try {
-    const { data: word } = await supabase
-      .from('words')
-      .select('*')
-      .eq('id', wordId)
-      .eq('user_id', userId)
-      .single();
-
-    if (!word) {
-      await bot.sendMessage(chatId, '❌ Word not found.');
-      return;
-    }
-
-    await bot.sendMessage(
-      chatId,
-      `Enter new translation for "${word.word}" in format:\n${word.word} - new_translation`,
-      cancelKeyboard
-    );
-
-    // Set user state for editing
-    return { state: 'editing_word', wordId };
-  } catch (error) {
-    console.error('Error editing word:', error);
-    await bot.sendMessage(chatId, '❌ Failed to edit word.');
-  }
-};
-
 export const handleWordDelete = (bot, supabase) => async (msg, wordId) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;

@@ -9,13 +9,16 @@ export const MESSAGES = {
     NO_PRACTICE_WORDS: (categoryName) =>
       `No words to practice in category "${categoryName}"! All words are well learned or you need to add new ones.`,
     NO_MORE_WORDS: 'No more words available for practice in this category.',
-    INVALID_PRACTICE_TYPE: '❌ Please select a valid practice type or cancel.'
+    INVALID_PRACTICE_TYPE: '❌ Please select a valid practice type or cancel.',
+    WORD_NOT_FOUND: '❌ Word not found. Please try again.',
+    EDIT_CANCELLED: '❌ Edit cancelled.'
   },
 
   SUCCESS: {
     PRACTICE_COMPLETE: '🎉 Practice session complete!',
     CORRECT_ANSWER: '✅ Correct!',
-    WRONG_ANSWER: (correctAnswer) => `❌ Wrong. The correct answer is: ${correctAnswer}`
+    WRONG_ANSWER: (correctAnswer) => `❌ Wrong. The correct answer is: ${correctAnswer}`,
+    WORD_UPDATED: '✅ Word has been updated successfully!'
   },
 
   ACTIONS: {
@@ -27,7 +30,11 @@ export const MESSAGES = {
     CHOOSE_PRACTICE_TYPE: 'Choose practice type:',
     TRANSLATE_WORD: (category, word) => `[${category}] Translate this word: ${word}`,
     CHOOSE_TRANSLATION: (category, word) =>
-      `[${category}] Choose the correct translation for: ${word}`
+      `[${category}] Choose the correct translation for: ${word}`,
+    EDIT_WHICH_WORD: 'Which word would you like to edit?',
+    ENTER_NEW_WORD: (oldWord) => `Current word is "${oldWord}". Please enter the new word:`,
+    ENTER_NEW_TRANSLATION: (oldTranslation) =>
+      `Current translation is "${oldTranslation}". Please enter the new translation:`
   },
 
   PRACTICE_SUMMARY: {
