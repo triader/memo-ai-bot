@@ -20,7 +20,7 @@ const createCategoryKeyboard = (categories) => {
   };
 };
 
-export const handleBulkImport = (bot, supabase) => {
+export const bulkImportHandler = (bot, supabase) => {
   const categoryService = new CategoryService(supabase);
 
   return async (msg) => {

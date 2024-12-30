@@ -1,7 +1,8 @@
 import { generateSentence } from '../utils/openai.js';
-import { updateWordProgress } from './wordProgressHandler.js';
+import { updateWordProgress } from './updateWordProgressHandler.js';
 import { mainKeyboard } from '../utils/keyboards.js';
 import { MESSAGES, EMOJIS } from '../constants/messages.js';
+import { stateManager } from '../utils/stateManager.js';
 
 // Constants
 const WORDS_PER_SESSION = 5;
@@ -106,7 +107,7 @@ const createSummaryMessage = (sessionStats, practicedWordsDetails, sessionResult
   );
 };
 
-export const handlePractice = (bot, supabase, userSettingsService) => {
+export const practiceHandler = (bot, supabase, userSettingsService) => {
   const getNextWord = async (userId, currentCategory, previousWords = []) => {
     console.log('Getting next word with params:', {
       userId,
@@ -171,11 +172,7 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
 
     switch (practiceType) {
       case 'translate':
-        await bot.sendMessage(
-          chatId,
-          MESSAGES.PROMPTS.TRANSLATE_WORD(category.name, word.word),
-          cancelKeyboard
-        );
+        await bot.sendMessage(chatId, MESSAGES.PROMPTS.TRANSLATE_WORD(word.word), cancelKeyboard);
         break;
 
       case 'multiple_choice':
@@ -197,17 +194,13 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
           [{ text: '❌ Cancel' }]
         ];
 
-        await bot.sendMessage(
-          chatId,
-          MESSAGES.PROMPTS.CHOOSE_TRANSLATION(category.name, word.word),
-          {
-            reply_markup: {
-              keyboard,
-              one_time_keyboard: true,
-              resize_keyboard: true
-            }
+        await bot.sendMessage(chatId, MESSAGES.PROMPTS.CHOOSE_TRANSLATION(word.word), {
+          reply_markup: {
+            keyboard,
+            one_time_keyboard: true,
+            resize_keyboard: true
           }
-        );
+        });
         break;
 
       case 'fill_blank':
@@ -349,6 +342,7 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
           );
           await bot.sendMessage(chatId, summaryMessage, mainKeyboard);
           practiceStates.delete(chatId);
+          stateManager.clearState();
           return;
         }
 
@@ -357,6 +351,7 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
         if (!nextWordData) {
           await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_MORE_WORDS, mainKeyboard);
           practiceStates.delete(chatId);
+          stateManager.clearState();
           return;
         }
 
@@ -457,6 +452,7 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
         );
         await bot.sendMessage(chatId, summaryMessage, mainKeyboard);
         practiceStates.delete(chatId);
+        stateManager.clearState();
         return;
       }
 
@@ -465,6 +461,7 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
       if (!nextWordData) {
         await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_MORE_WORDS, mainKeyboard);
         practiceStates.delete(chatId);
+        stateManager.clearState();
         return;
       }
 
@@ -498,6 +495,7 @@ export const handlePractice = (bot, supabase, userSettingsService) => {
       console.error('Practice error:', error);
       await bot.sendMessage(chatId, MESSAGES.ERRORS.PRACTICE, mainKeyboard);
       practiceStates.delete(chatId);
+      stateManager.clearState();
     }
   };
 };

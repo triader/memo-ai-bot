@@ -17,6 +17,7 @@ export const updateWordProgress = async (supabase, wordId, isCorrect) => {
       .update({
         mastery_level: newLevel,
         last_practiced: new Date().toISOString()
+        //TODO: add updating counts correct/incorrect
       })
       .eq('id', wordId);
 

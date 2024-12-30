@@ -1,25 +1,30 @@
-const userStates = new Map();
-
-export const StateManager = {
-  get: (chatId) => {
-    const state = userStates.get(chatId);
-    console.log(`Getting state for chat ${chatId}:`, state);
-    return state;
-  },
-
-  set: (chatId, state) => {
-    console.log(`Setting state for chat ${chatId}:`, state);
-    return userStates.set(chatId, state);
-  },
-
-  delete: (chatId) => {
-    console.log(`Deleting state for chat ${chatId}`);
-    return userStates.delete(chatId);
-  },
-
-  setState: (chatId, step, data = {}) => {
-    const state = { step, ...data };
-    console.log(`Setting state for chat ${chatId}:`, state);
-    userStates.set(chatId, state);
-  }
+export const BotState = {
+  IDLE: 'IDLE',
+  ADDING_WORD: 'ADDING_WORD',
+  PRACTICING: 'PRACTICING',
+  CHANGING_CATEGORY: 'CHANGING_CATEGORY',
+  DELETING_WORD: 'DELETING_WORD',
+  EDITING_WORD: 'EDITING_WORD',
+  IMPORTING: 'IMPORTING'
 };
+
+class StateManager {
+  constructor() {
+    this.state = BotState.IDLE;
+  }
+
+  setState(state) {
+    this.state = state;
+  }
+
+  getState() {
+    return this.state;
+  }
+
+  clearState() {
+    this.state = BotState.IDLE;
+  }
+}
+
+// Export singleton instance
+export const stateManager = new StateManager();

@@ -1,6 +1,7 @@
 import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
 import { UserService } from '../services/userService.js';
+import { stateManager } from '../utils/stateManager.js';
 
 // Store word addition states
 const wordStates = new Map();
@@ -15,7 +16,7 @@ export const createCategoryKeyboard = (categories) => {
   };
 };
 
-export const handleAddWord = (bot, supabase, userSettingsService) => {
+export const addWordHandler = (bot, supabase, userSettingsService) => {
   const categoryService = new CategoryService(supabase);
   const userService = new UserService(supabase);
 
@@ -23,7 +24,6 @@ export const handleAddWord = (bot, supabase, userSettingsService) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const text = msg.text;
-
     try {
       // Ensure user exists
       await userService.ensureUserExists(msg.from);
@@ -53,13 +53,6 @@ export const handleAddWord = (bot, supabase, userSettingsService) => {
           );
           wordStates.set(chatId, { step: 'creating_category' });
         }
-        return;
-      }
-
-      // Handle cancel command
-      if (text === '❌ Cancel') {
-        wordStates.delete(chatId);
-        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
         return;
       }
 
@@ -138,10 +131,12 @@ export const handleAddWord = (bot, supabase, userSettingsService) => {
               mainKeyboard
             );
             wordStates.delete(chatId);
+            stateManager.clearState();
           } catch (error) {
             console.error('Error adding word:', error);
             await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', mainKeyboard);
             wordStates.delete(chatId);
+            stateManager.clearState();
           }
           break;
       }
@@ -149,6 +144,7 @@ export const handleAddWord = (bot, supabase, userSettingsService) => {
       console.error('Error in word handler:', error);
       await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', mainKeyboard);
       wordStates.delete(chatId);
+      stateManager.clearState();
     }
   };
 };

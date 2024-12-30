@@ -30,9 +30,8 @@ export const MESSAGES = {
 
   PROMPTS: {
     CHOOSE_PRACTICE_TYPE: 'Choose practice type:',
-    TRANSLATE_WORD: (category, word) => `[${category}] Translate this word: ${word}`,
-    CHOOSE_TRANSLATION: (category, word) =>
-      `[${category}] Choose the correct translation for: ${word}`,
+    TRANSLATE_WORD: (word) => `${word}`,
+    CHOOSE_TRANSLATION: (word) => `${word}`,
     EDIT_WHICH_WORD: 'Which word would you like to edit?',
     ENTER_NEW_WORD: (oldWord) => `Current word is "${oldWord}". Please enter the new word:`,
     ENTER_NEW_TRANSLATION: (oldTranslation) =>

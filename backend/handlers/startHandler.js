@@ -1,6 +1,6 @@
 import { mainKeyboard } from '../utils/keyboards.js';
 
-export const handleStart = (bot) => async (msg) => {
+export const startHandler = (bot) => async (msg) => {
   const chatId = msg.chat.id;
   const message = `
 Welcome to the Language Learning Bot! 🎉

@@ -1,6 +1,6 @@
-import { createWordActionsKeyboard, mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
+import { mainKeyboard } from '../utils/keyboards.js';
 
-export const handleMyWords = (bot, supabase, userSettingsService) => {
+export const myWordsHandler = (bot, supabase, userSettingsService) => {
   return async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;

@@ -37,14 +37,3 @@ export const removeKeyboard = {
     remove_keyboard: true
   }
 };
-
-export const createWordActionsKeyboard = (wordId) => ({
-  reply_markup: {
-    inline_keyboard: [
-      [
-        { text: '✏️ Edit', callback_data: `edit_${wordId}` },
-        { text: '🗑️ Delete', callback_data: `delete_${wordId}` }
-      ]
-    ]
-  }
-});

@@ -1,4 +1,4 @@
-export const parseCommand = (text) => {
+export const commandParser = (text) => {
   if (!text?.startsWith('/')) return null;
 
   const parts = text.split(' ');

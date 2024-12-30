@@ -1,0 +1,10 @@
+export { addWordHandler } from './addWordHandler.js';
+export { bulkImportHandler } from './bulkImportHandler.js';
+export { categoryHandler } from './categoryHandler.js';
+export { deleteWordHandler } from './deleteWordHandler.js';
+export { wordEditHandler } from './wordEditHandler.js';
+export { myWordsHandler } from './myWordsHandler.js';
+export { practiceHandler } from './practiceHandler.js';
+export { updateWordProgress } from './updateWordProgressHandler.js';
+export { startHandler } from './startHandler.js';
+export { translateHandler } from './translateHandler.js';

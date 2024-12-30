@@ -17,6 +17,8 @@ export class UserSettingsService {
         .eq('user_id', userId)
         .single();
 
+      if (settingsError) throw settingsError;
+
       if (current_category_id) {
         const { data: category } = await this.supabase
           .from('categories')
