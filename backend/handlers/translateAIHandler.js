@@ -28,13 +28,15 @@ export function translateAIHandler(bot, openai, userSettingsService) {
               role: 'system',
               content:
                 'You are a helpful language learning assistant. Provide translations in the following format ONLY:\n' +
-                'TRANSLATION: [translated word or phrase]\n' +
-                'EXPLANATION: [explanation]\n' +
-                'EXAMPLE: [usage example]'
+                'Translation: [translated word or phrase]\n' +
+                '[For translations containing kanji or Chinese characters, add their reading on the next line in parentheses. Do not add readings for hiragana or katakana.]\n' +
+                'Explanation: [explanation]\n' +
+                'Example: [usage example]\n' +
+                '[If the example contains kanji or Chinese characters, add their reading on the next line in parentheses. Do not add readings for hiragana or katakana.]'
             },
             {
               role: 'user',
-              content: `Translate "${text}" to ${currentCategory.name} and provide a brief explanation and usage example.`
+              content: `Translate "${text}" to ${currentCategory.name} and provide a brief explanation and usage example. For Japanese words with kanji or Chinese characters, include their reading in parentheses (but don't add readings for hiragana/katakana). If your example contains kanji/Chinese characters, add readings for those too.`
             }
           ],
           model: 'gpt-4o'
@@ -43,7 +45,7 @@ export function translateAIHandler(bot, openai, userSettingsService) {
         const response = completion.choices[0].message.content;
 
         // Parse the translation from the response
-        const translationMatch = response.match(/TRANSLATION:\s*([^\n]+)/);
+        const translationMatch = response.match(/Translation:\s*([^\n]+)/);
         const translation = translationMatch ? translationMatch[1].trim() : null;
 
         // Send the full response first
