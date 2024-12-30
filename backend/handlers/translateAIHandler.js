@@ -28,15 +28,15 @@ export function translateAIHandler(bot, openai, userSettingsService) {
               role: 'system',
               content:
                 'You are a helpful language learning assistant. Provide translations in the following format ONLY:\n' +
-                'Translation: [translated word or phrase]\n' +
+                'Translation: [translated word or phrase]' +
                 '[For translations containing kanji or Chinese characters, add their reading on the next line in parentheses. Do not add readings for hiragana or katakana.]\n' +
                 'Explanation: [explanation]\n' +
-                'Example: [usage example]\n' +
+                'Example: [usage example] (English: [translation])\n' +
                 '[If the example contains kanji or Chinese characters, add their reading on the next line in parentheses. Do not add readings for hiragana or katakana.]'
             },
             {
               role: 'user',
-              content: `Translate "${text}" to ${currentCategory.name} and provide a brief explanation and usage example. For Japanese words with kanji or Chinese characters, include their reading in parentheses (but don't add readings for hiragana/katakana). If your example contains kanji/Chinese characters, add readings for those too.`
+              content: `Translate "${text}" to ${currentCategory.name} and provide a brief explanation and usage example. For Japanese words with kanji or Chinese characters, include their reading in parentheses (but don't add readings for hiragana/katakana). Include English translations for examples.`
             }
           ],
           model: 'gpt-4o'
@@ -66,8 +66,12 @@ export function translateAIHandler(bot, openai, userSettingsService) {
               inline_keyboard: [
                 [
                   {
-                    text: '➕ Add to vocabulary',
+                    text: '📝 Add Word',
                     callback_data: `add_trans_${translationKey}`
+                  },
+                  {
+                    text: '🔄 More examples',
+                    callback_data: `more_examples_${translationKey}`
                   }
                 ]
               ]
@@ -88,12 +92,13 @@ export function translateAIHandler(bot, openai, userSettingsService) {
   };
 }
 
-export function handleTranslationCallback(bot) {
+export function handleTranslationCallback(bot, openai) {
   return async (callbackQuery) => {
     const chatId = callbackQuery.message.chat.id;
     const userId = callbackQuery.from.id;
     const messageId = callbackQuery.message.message_id;
 
+    // Handle add translation callback
     if (callbackQuery.data.startsWith('add_trans_')) {
       try {
         const translationKey = callbackQuery.data.replace('add_trans_', '');
@@ -138,6 +143,71 @@ export function handleTranslationCallback(bot) {
         console.error('Error adding word:', error);
         await bot.answerCallbackQuery(callbackQuery.id, {
           text: '❌ Failed to add word. Please try again.',
+          show_alert: true
+        });
+      }
+    }
+
+    // Handle more examples callback
+    if (callbackQuery.data.startsWith('more_examples_')) {
+      try {
+        const translationKey = callbackQuery.data.replace('more_examples_', '');
+        const translationData = translationStore.get(translationKey);
+
+        if (!translationData) {
+          await bot.answerCallbackQuery(callbackQuery.id, {
+            text: '❌ Translation data expired. Please try again.',
+            show_alert: true
+          });
+          return;
+        }
+
+        const { word, translation } = translationData;
+
+        // Show loading state
+        await bot.answerCallbackQuery(callbackQuery.id, {
+          text: 'Generating more examples...'
+        });
+
+        const completion = await openai.chat.completions.create({
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a helpful language learning assistant. Provide 5 example sentences using the given word.\n' +
+                'Format each example as follows:\n' +
+                '1. [Example sentence in target language] ([translation in original language])\n' +
+                '[If the sentence contains kanji or Chinese characters, add their reading on the next line in parentheses. Do not add readings for hiragana or katakana.]\n' +
+                '\n' +
+                'Number each example from 1 to 5.'
+            },
+            {
+              role: 'user',
+              content: `Provide 5 different example sentences using the word "${translation}" (${word}). Make the examples progressively more complex. Include English translations for each example.`
+            }
+          ],
+          model: 'gpt-4o'
+        });
+
+        const examples = completion.choices[0].message.content;
+
+        // Send examples as a new message
+        await bot.sendMessage(chatId, `📝 More examples with "${translation}":\n\n${examples}`, {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '🔄 Generate more',
+                  callback_data: `more_examples_${translationKey}`
+                }
+              ]
+            ]
+          }
+        });
+      } catch (error) {
+        console.error('Error generating examples:', error);
+        await bot.answerCallbackQuery(callbackQuery.id, {
+          text: '❌ Failed to generate examples. Please try again.',
           show_alert: true
         });
       }
