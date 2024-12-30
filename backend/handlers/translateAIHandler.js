@@ -111,8 +111,8 @@ export function handleTranslationCallback(bot) {
           {
             user_id: userId,
             category_id: categoryId,
-            word: word,
-            translation,
+            word: translation,
+            translation: word,
             created_at: new Date()
           }
         ]);
@@ -123,7 +123,7 @@ export function handleTranslationCallback(bot) {
         translationStore.delete(translationKey);
 
         // Update the message to show success
-        await bot.editMessageText(`✅ Added "${word} - ${translation}" to your vocabulary!`, {
+        await bot.editMessageText(`✅ Added "${translation} - ${word}" to your vocabulary!`, {
           chat_id: chatId,
           message_id: messageId
         });
