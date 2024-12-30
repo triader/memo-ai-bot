@@ -7,4 +7,4 @@ export { myWordsHandler } from './myWordsHandler.js';
 export { practiceHandler } from './practiceHandler.js';
 export { updateWordProgress } from './updateWordProgressHandler.js';
 export { startHandler } from './startHandler.js';
-export { translateHandler } from './translateHandler.js';
+export { translateAIHandler } from './translateAIHandler.js';

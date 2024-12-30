@@ -8,7 +8,7 @@ import {
   bulkImportHandler,
   addWordHandler,
   practiceHandler,
-  translateHandler
+  translateAIHandler
 } from './handlers/index.js';
 import { userSettingsService } from './server.js';
 import { commandParser } from './utils/commandParser.js';
@@ -108,7 +108,7 @@ export function inputHandler(bot) {
           await bot.sendMessage(chatId, 'Main menu:', mainKeyboard);
           break;
         default:
-          await translateHandler(bot, openai)(msg);
+          await translateAIHandler(bot, openai, userSettingsService)(msg);
       }
     } catch (error) {
       console.error('Error handling message:', error);

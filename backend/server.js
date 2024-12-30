@@ -5,6 +5,7 @@ import cors from 'cors';
 import { supabase } from './config/supabase.js';
 import { UserSettingsService } from './services/userSettingsService.js';
 import { inputHandler } from './inputHandler.js';
+import { handleTranslationCallback } from './handlers/translateAIHandler.js';
 
 // Load environment variables
 dotenv.config();
@@ -48,3 +49,6 @@ app.listen(PORT, () => {
 console.log('Bot is running...');
 
 export const userSettingsService = new UserSettingsService(supabase);
+
+// Register the translation callback handler
+bot.on('callback_query', handleTranslationCallback(bot));
