@@ -1,86 +1,95 @@
 import { MESSAGES } from '../constants/messages.js';
-import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
+import { mainKeyboard } from '../utils/keyboards.js';
 import { stateManager } from '../utils/stateManager.js';
 
-// Store delete states
 export const deleteStates = new Map();
 
-export const deleteWordHandler = (bot, supabase) => {
+export const deleteWordHandler = (bot, supabase, userSettingsService) => {
   return async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const text = msg.text;
+    const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
-    try {
-      let state = deleteStates.get(chatId);
+    if (msg.callback_query) {
+      const chatId = msg.callback_query.message.chat.id;
+      const userId = msg.callback_query.from.id;
+      const wordToDelete = msg.callback_query.data;
 
-      // Direct delete command with word
-      if (text.startsWith('/delete')) {
-        const directWord = text.replace('/delete', '').trim();
-        if (directWord) {
-          await findAndDeleteWord(chatId, userId, directWord, bot, supabase);
-          return;
-        }
-      }
-
-      // Initial command handling
-      if (text === '🗑️ Delete word') {
-        deleteStates.set(chatId, { step: 'waiting_for_word' });
-        await bot.sendMessage(chatId, MESSAGES.PROMPTS.DELETE_WHICH_WORD, cancelKeyboard);
-        return;
-      }
-
-      // Get updated state (in case it was just set)
-      state = deleteStates.get(chatId);
-
-      // If no state, ignore the message
-      if (!state) {
-        return;
-      }
-
-      // Handle word to delete
-      if (state.step === 'waiting_for_word') {
-        await findAndDeleteWord(chatId, userId, text, bot, supabase);
+      try {
+        await findAndDeleteWord(userId, wordToDelete, supabase, currentCategory.id);
+        await bot.editMessageText(MESSAGES.SUCCESS.WORD_DELETED(wordToDelete), {
+          chat_id: chatId,
+          message_id: msg.callback_query.message.message_id,
+          reply_markup: { inline_keyboard: [] }
+        });
         deleteStates.delete(chatId);
         stateManager.clearState();
+      } catch (error) {
+        console.error('Error in word delete:', error);
+        await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, mainKeyboard);
+        stateManager.clearState();
+      }
+      return;
+    }
+
+    try {
+      if (text === '🗑️ Delete word') {
+        const { data: words, error } = await supabase
+          .from('words')
+          .select('word')
+          .eq('user_id', userId)
+          .eq('category_id', currentCategory.id);
+
+        if (error) {
+          console.error('Error fetching words:', error);
+          await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, mainKeyboard);
+          return;
+        }
+
+        if (!words || words.length === 0) {
+          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_WORDS, mainKeyboard);
+          return;
+        }
+
+        const keyboard = {
+          inline_keyboard: words.reduce((acc, { word }, index) => {
+            if (index % 2 === 0) {
+              acc.push([{ text: word, callback_data: word }]);
+            } else {
+              acc[acc.length - 1].push({ text: word, callback_data: word });
+            }
+            return acc;
+          }, [])
+        };
+
+        deleteStates.set(chatId, {
+          action: 'SELECT_WORD_TO_DELETE',
+          category: currentCategory
+        });
+
+        await bot.sendMessage(chatId, MESSAGES.PROMPTS.SELECT_WORD_TO_DELETE, {
+          reply_markup: keyboard
+        });
       }
     } catch (error) {
       console.error('Error in word delete:', error);
       await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, mainKeyboard);
       deleteStates.delete(chatId);
-      stateManager.clearState();
     }
   };
 };
 
-// Helper function to find and delete word
-async function findAndDeleteWord(chatId, userId, wordToDelete, bot, supabase) {
-  // Find the word in database
-  const { data: words, error } = await supabase
-    .from('words')
-    .select('*')
-    .eq('user_id', userId)
-    .ilike('word', wordToDelete)
-    .limit(1);
-
-  if (error || !words?.length) {
-    await bot.sendMessage(chatId, MESSAGES.ERRORS.WORD_NOT_FOUND, mainKeyboard);
-    return;
-  }
-
-  const wordData = words[0];
-
-  // Delete the word
+async function findAndDeleteWord(userId, wordToDelete, supabase, categoryId) {
   const { error: deleteError } = await supabase
     .from('words')
     .delete()
-    .eq('id', wordData.id)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .eq('category_id', categoryId)
+    .ilike('word', wordToDelete);
 
   if (deleteError) {
     console.error('Delete error:', deleteError);
     throw deleteError;
   }
-
-  await bot.sendMessage(chatId, MESSAGES.SUCCESS.WORD_DELETED(wordData.word), mainKeyboard);
 }

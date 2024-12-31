@@ -14,6 +14,7 @@ import { userSettingsService } from './server.js';
 import { commandParser } from './utils/commandParser.js';
 import { mainKeyboard, mainKeyboardSecondary } from './utils/keyboards.js';
 import { BotState, stateManager } from './utils/stateManager.js';
+import { deleteStates } from './handlers/deleteWordHandler.js';
 
 export function inputHandler(bot) {
   bot.on('message', async (msg) => {
@@ -99,7 +100,7 @@ export function inputHandler(bot) {
           break;
         case '🗑️ Delete word':
           stateManager.setState(BotState.DELETING_WORD);
-          await deleteWordHandler(bot, supabase)(msg);
+          await deleteWordHandler(bot, supabase, userSettingsService)(msg);
           break;
         case '⚙️ More options':
           await bot.sendMessage(chatId, 'Additional options:', mainKeyboardSecondary);
@@ -118,6 +119,31 @@ export function inputHandler(bot) {
       } catch (sendError) {
         console.error('Error sending error message:', sendError);
       }
+    }
+  });
+
+  bot.on('callback_query', async (query) => {
+    try {
+      if (query.data.startsWith('translate_')) {
+        await handleTranslationCallback(bot, openai)(query);
+        return;
+      }
+
+      const state = deleteStates.get(query.message.chat.id);
+      if (state?.action === 'SELECT_WORD_TO_DELETE') {
+        await deleteWordHandler(
+          bot,
+          supabase,
+          userSettingsService
+        )({
+          callback_query: query,
+          chat: query.message.chat.id,
+          from: query.from
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error handling callback query:', error);
     }
   });
 }

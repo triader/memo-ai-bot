@@ -36,7 +36,8 @@ export const MESSAGES = {
     ENTER_NEW_WORD: (oldWord) => `Current word is "${oldWord}". Please enter the new word:`,
     ENTER_NEW_TRANSLATION: (oldTranslation) =>
       `Current translation is "${oldTranslation}". Please enter the new translation:`,
-    DELETE_WHICH_WORD: 'Which word would you like to delete?'
+    DELETE_WHICH_WORD: 'Which word would you like to delete?',
+    SELECT_WORD_TO_DELETE: 'Select the word you want to delete:'
   },
 
   PRACTICE_SUMMARY: {

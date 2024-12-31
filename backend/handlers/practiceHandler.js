@@ -109,12 +109,6 @@ const createSummaryMessage = (sessionStats, practicedWordsDetails, sessionResult
 
 export const practiceHandler = (bot, supabase, userSettingsService) => {
   const getNextWord = async (userId, currentCategory, previousWords = []) => {
-    console.log('Getting next word with params:', {
-      userId,
-      categoryId: currentCategory.id,
-      previousWords
-    });
-
     // Get current timestamp minus 24 hours
     const oneDayAgo = new Date();
     oneDayAgo.setHours(oneDayAgo.getHours() - 24);
@@ -134,8 +128,6 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       .order('last_practiced', { ascending: true, nullsFirst: true })
       .limit(1);
 
-    console.log('Query result:', { words, error });
-
     if (error) {
       console.error('Error fetching word:', error);
       throw error;
@@ -149,8 +141,6 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       .eq('category_id', currentCategory.id)
       .neq('id', words[0].id)
       .limit(10);
-
-    console.log('Other words result:', { otherWords, otherError });
 
     return {
       word: words[0],
@@ -265,9 +255,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
         }
 
         // Initialize practice session
-        console.log('Getting next word for user:', userId, 'category:', state.currentCategory);
         const wordData = await getNextWord(userId, state.currentCategory);
-        console.log('Got word data:', wordData);
 
         if (!wordData) {
           await bot.sendMessage(
@@ -281,7 +269,6 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
 
         const practiceType =
           selectedType === PRACTICE_TYPES.RANDOM ? getRandomPracticeType() : selectedType;
-        console.log('Final practice type:', practiceType);
 
         practiceStates.set(chatId, {
           wordId: wordData.word.id,
