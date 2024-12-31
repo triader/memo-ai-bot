@@ -15,6 +15,7 @@ import { commandParser } from './utils/commandParser.js';
 import { mainKeyboard, mainKeyboardSecondary } from './utils/keyboards.js';
 import { BotState, stateManager } from './utils/stateManager.js';
 import { deleteStates } from './handlers/deleteWordHandler.js';
+import { BUTTONS } from './constants/buttons.js';
 
 export function inputHandler(bot) {
   bot.on('message', async (msg) => {
@@ -23,7 +24,7 @@ export function inputHandler(bot) {
       const text = msg.text;
 
       // Handle cancel command globally
-      if (text === '❌ Cancel') {
+      if (text === BUTTONS.CANCEL) {
         stateManager.clearState();
         await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
         return;
@@ -75,37 +76,37 @@ export function inputHandler(bot) {
 
       // Handle menu buttons
       switch (text) {
-        case '📝 Add Word':
+        case BUTTONS.ADD_WORD:
           stateManager.setState(BotState.ADDING_WORD);
           await addWordHandler(bot, supabase, userSettingsService)(msg);
           break;
-        case '🎯 Practice':
+        case BUTTONS.PRACTICE:
           stateManager.setState(BotState.PRACTICING);
           await practiceHandler(bot, supabase, userSettingsService)(msg);
           break;
-        case '🔄 Change Category':
+        case BUTTONS.CHANGE_CATEGORY:
           stateManager.setState(BotState.CHANGING_CATEGORY);
           await categoryHandler(bot, supabase, userSettingsService)(msg);
           break;
-        case '📥 Import':
+        case BUTTONS.IMPORT:
           stateManager.setState(BotState.IMPORTING);
           await bulkImportHandler(bot, supabase)(msg);
           break;
-        case '📚 My Words':
+        case BUTTONS.MY_WORDS:
           await myWordsHandler(bot, supabase, userSettingsService)(msg);
           break;
-        case '✏️ Edit word':
+        case BUTTONS.EDIT_WORD:
           stateManager.setState(BotState.EDITING_WORD);
           await wordEditHandler(bot, supabase)(msg);
           break;
-        case '🗑️ Delete word':
+        case BUTTONS.DELETE_WORD:
           stateManager.setState(BotState.DELETING_WORD);
           await deleteWordHandler(bot, supabase, userSettingsService)(msg);
           break;
-        case '⚙️ More options':
+        case BUTTONS.MORE_OPTIONS:
           await bot.sendMessage(chatId, 'Additional options:', mainKeyboardSecondary);
           break;
-        case '◀️ Back to main':
+        case BUTTONS.BACK_TO_MAIN:
           await bot.sendMessage(chatId, 'Main menu:', mainKeyboard);
           break;
         default:

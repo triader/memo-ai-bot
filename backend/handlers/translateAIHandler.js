@@ -1,5 +1,6 @@
 import { BotState, stateManager } from '../utils/stateManager.js';
 import { supabase } from '../config/supabase.js';
+import { BUTTONS } from '../constants/buttons.js';
 
 // Store temporary translation data
 const translationStore = new Map();
@@ -66,11 +67,11 @@ export function translateAIHandler(bot, openai, userSettingsService) {
               inline_keyboard: [
                 [
                   {
-                    text: '📝 Add Word',
+                    text: BUTTONS.ADD_WORD,
                     callback_data: `add_trans_${translationKey}`
                   },
                   {
-                    text: '🔄 More examples',
+                    text: BUTTONS.MORE_EXAMPLES,
                     callback_data: `more_examples_${translationKey}`
                   }
                 ]
