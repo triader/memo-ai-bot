@@ -79,6 +79,19 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
 
     switch (state.step) {
       case 'selecting_category':
+        categories = await categoryService.getUserCategories(userId);
+        const { currentCategory: dbCurrentCategory } =
+          await userSettingsService.getCurrentCategory(userId);
+        currentCategory = dbCurrentCategory;
+
+        const selectedCategory = categories.find((cat) => cat.name === text);
+        console.log('Found category:', selectedCategory);
+
+        if (selectedCategory?.id === currentCategory?.id) {
+          console.log('Same category selected, returning');
+          return;
+        }
+
         if (text === BUTTONS.EDIT_CATEGORY) {
           const categories = await categoryService.getUserCategories(userId);
           const inlineKeyboard = categories.map((cat) => [
@@ -124,13 +137,6 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
             reply_markup: createCategoryKeyboard(categories)
           });
           categoryStates.set(chatId, { step: 'deleting_category' });
-          return;
-        }
-
-        const selectedCategory = categories.find((cat) => cat.name === text);
-        //TODO: fix this
-        //@ts-ignore
-        if (selectedCategory?.id === currentCategory?.id) {
           return;
         }
 
