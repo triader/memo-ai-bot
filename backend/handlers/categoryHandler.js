@@ -40,15 +40,16 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
 
   const categoryService = new CategoryService(supabase);
   let currentCategory = undefined;
+  let categories = [];
 
   try {
     await bot.sendChatAction(chatId, 'typing');
     if (text === BUTTONS.CHANGE_CATEGORY) {
-      const categories = await categoryService.getUserCategories(userId);
+      categories = await categoryService.getUserCategories(userId);
       const { currentCategory: dbCurrentCategory } =
         await userSettingsService.getCurrentCategory(userId);
       currentCategory = dbCurrentCategory;
-      if (!categories?.length) {
+      if (!categories?.length && !currentCategory) {
         await bot.sendMessage(
           chatId,
           'You have no categories yet. Please enter a name for your first category:',
@@ -108,9 +109,9 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
           return;
         }
 
-        const categories = await categoryService.getUserCategories(userId);
         const selectedCategory = categories.find((cat) => cat.name === text);
-
+        //TODO: fix this
+        //@ts-ignore
         if (selectedCategory?.id === currentCategory?.id) {
           return;
         }
