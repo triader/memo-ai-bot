@@ -16,6 +16,7 @@ import { mainKeyboard, mainKeyboardSecondary } from './utils/keyboards.js';
 import { BotState, stateManager } from './utils/stateManager.js';
 import { deleteStates } from './handlers/deleteWordHandler.js';
 import { BUTTONS } from './constants/buttons.js';
+import { handleTranslationCallback } from './handlers/translateAIHandler.js';
 
 export function inputHandler(bot) {
   bot.on('message', async (msg) => {
@@ -125,7 +126,11 @@ export function inputHandler(bot) {
 
   bot.on('callback_query', async (query) => {
     try {
-      if (query.data.startsWith('translate_')) {
+      if (
+        query.data.startsWith('translate_') ||
+        query.data.startsWith('add_trans_') ||
+        query.data.startsWith('more_examples_')
+      ) {
         await handleTranslationCallback(bot, openai)(query);
         return;
       }

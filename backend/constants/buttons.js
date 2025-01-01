@@ -10,5 +10,6 @@ export const BUTTONS = {
   BACK_TO_MAIN: '◀️ Back to main',
   CANCEL: '❌ Cancel',
   DEV_INDICATOR: 'This is DEV',
-  MORE_EXAMPLES: '🔄 More examples'
+  MORE_EXAMPLES: '🔄 More examples',
+  FOLLOW_UP: '💭 Follow-up'
 };
