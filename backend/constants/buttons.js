@@ -3,6 +3,8 @@ export const BUTTONS = {
   PRACTICE: '🎯 Practice',
   MY_WORDS: '📚 My Words',
   CHANGE_CATEGORY: '🔄 Change Category',
+  NEW_CATEGORY: '➕ New Category',
+  DELETE_CATEGORY: '🗑️ Delete Category',
   MORE_OPTIONS: '⚙️ More options',
   EDIT_WORD: '✏️ Edit word',
   DELETE_WORD: '🗑️ Delete word',

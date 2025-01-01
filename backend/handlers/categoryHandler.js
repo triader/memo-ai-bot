@@ -123,7 +123,6 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
         }
         await userSettingsService.setCurrentCategory(userId, selectedCategory.id);
         categoryStates.delete(chatId);
-        await bot.sendChatAction(chatId, 'typing');
         await bot.sendMessage(
           chatId,
           `✅ Current category changed to "${selectedCategory.name}"`,
