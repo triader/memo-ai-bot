@@ -1,6 +1,7 @@
 import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
 import { BotState, stateManager } from '../utils/stateManager.js';
+import { BUTTONS } from '../constants/buttons.js';
 
 // Store category management states
 export const categoryStates = new Map();
@@ -17,13 +18,13 @@ export const createCategoryKeyboard = (
     }
   ]);
   if (includeNew) {
-    keyboard.push([{ text: '➕ New Category' }]);
+    keyboard.push([{ text: BUTTONS.NEW_CATEGORY }]);
   }
   if (includeDelete) {
-    keyboard.push([{ text: '🗑️ Delete Category' }]);
+    keyboard.push([{ text: BUTTONS.DELETE_CATEGORY }]);
   }
 
-  keyboard.push([{ text: '❌ Cancel' }]);
+  keyboard.push([{ text: BUTTONS.CANCEL }]);
 
   return {
     keyboard,
@@ -41,8 +42,8 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
   let currentCategory = undefined;
 
   try {
-    // Handle initial command
-    if (text === '/category' || text === '🔄 Change Category') {
+    await bot.sendChatAction(chatId, 'typing');
+    if (text === BUTTONS.CHANGE_CATEGORY) {
       const categories = await categoryService.getUserCategories(userId);
       const { currentCategory: dbCurrentCategory } =
         await userSettingsService.getCurrentCategory(userId);
@@ -122,6 +123,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
         }
         await userSettingsService.setCurrentCategory(userId, selectedCategory.id);
         categoryStates.delete(chatId);
+        await bot.sendChatAction(chatId, 'typing');
         await bot.sendMessage(
           chatId,
           `✅ Current category changed to "${selectedCategory.name}"`,

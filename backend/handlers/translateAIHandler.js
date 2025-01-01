@@ -85,6 +85,7 @@ export function translateAIHandler(bot, openai, userSettingsService) {
       }
 
       try {
+        await bot.sendChatAction(chatId, 'typing');
         const completion = await openai.chat.completions.create({
           messages: [
             {
@@ -238,6 +239,7 @@ export function handleTranslationCallback(bot, openai) {
         await bot.answerCallbackQuery(callbackQuery.id, {
           text: 'Generating more examples...'
         });
+        await bot.sendChatAction(chatId, 'typing');
 
         const completion = await openai.chat.completions.create({
           messages: [

@@ -1,10 +1,11 @@
+import { BUTTONS } from '../constants/buttons.js';
 import { MESSAGES } from '../constants/messages.js';
 import { mainKeyboard } from '../utils/keyboards.js';
 import { stateManager } from '../utils/stateManager.js';
 
 export const deleteStates = new Map();
 
-export const deleteWordHandler = (bot, supabase, userSettingsService) => {
+export function deleteWordHandler(bot, supabase, userSettingsService) {
   return async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
@@ -34,7 +35,8 @@ export const deleteWordHandler = (bot, supabase, userSettingsService) => {
     }
 
     try {
-      if (text === '🗑️ Delete word') {
+      await bot.sendChatAction(chatId, 'typing');
+      if (text === BUTTONS.DELETE_WORD) {
         const { data: words, error } = await supabase
           .from('words')
           .select('word')
@@ -67,7 +69,6 @@ export const deleteWordHandler = (bot, supabase, userSettingsService) => {
           action: 'SELECT_WORD_TO_DELETE',
           category: currentCategory
         });
-
         await bot.sendMessage(chatId, MESSAGES.PROMPTS.SELECT_WORD_TO_DELETE, {
           reply_markup: keyboard
         });
@@ -78,7 +79,7 @@ export const deleteWordHandler = (bot, supabase, userSettingsService) => {
       deleteStates.delete(chatId);
     }
   };
-};
+}
 
 async function findAndDeleteWord(userId, wordToDelete, supabase, categoryId) {
   const { error: deleteError } = await supabase

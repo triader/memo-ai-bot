@@ -2,6 +2,7 @@ import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
 import { UserService } from '../services/userService.js';
 import { stateManager } from '../utils/stateManager.js';
+import { BUTTONS } from '../constants/buttons.js';
 
 // Store word addition states
 const wordStates = new Map();
@@ -19,17 +20,17 @@ export const createCategoryKeyboard = (categories) => {
 export const addWordHandler = (bot, supabase, userSettingsService) => {
   const categoryService = new CategoryService(supabase);
   const userService = new UserService(supabase);
-
   return async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const text = msg.text;
     try {
+      await bot.sendChatAction(chatId, 'typing');
       // Ensure user exists
       await userService.ensureUserExists(msg.from);
 
       // Handle initial command
-      if (text === '/add' || text === '📝 Add Word') {
+      if (text === BUTTONS.ADD_WORD) {
         const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
         if (currentCategory) {

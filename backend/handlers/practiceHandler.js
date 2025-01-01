@@ -3,6 +3,7 @@ import { updateWordProgress } from './updateWordProgressHandler.js';
 import { mainKeyboard } from '../utils/keyboards.js';
 import { MESSAGES, EMOJIS } from '../constants/messages.js';
 import { stateManager } from '../utils/stateManager.js';
+import { BUTTONS } from '../constants/buttons.js';
 
 // Constants
 const WORDS_PER_SESSION = 5;
@@ -206,15 +207,8 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
     const text = msg.text;
 
     try {
-      // Handle cancel command at any point
-      if (text === '❌ Cancel') {
-        practiceStates.delete(chatId);
-        await bot.sendMessage(chatId, MESSAGES.ACTIONS.PRACTICE_CANCELLED, mainKeyboard);
-        return;
-      }
-
-      // Handle initial command
-      if (text === '/practice' || text === '🎯 Practice') {
+      await bot.sendChatAction(chatId, 'typing');
+      if (text === BUTTONS.PRACTICE) {
         const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
         if (!currentCategory) {

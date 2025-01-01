@@ -111,7 +111,9 @@ export function inputHandler(bot) {
           await bot.sendMessage(chatId, 'Main menu:', mainKeyboard);
           break;
         default:
-          await translateAIHandler(bot, openai, userSettingsService)(msg);
+          if (stateManager.getState() === BotState.IDLE) {
+            await translateAIHandler(bot, openai, userSettingsService)(msg);
+          }
       }
     } catch (error) {
       console.error('Error handling message:', error);
