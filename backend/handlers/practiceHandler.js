@@ -36,7 +36,7 @@ const createPracticeTypeKeyboard = () => ({
     [{ text: PRACTICE_TYPE_LABELS[PRACTICE_TYPES.RANDOM] }],
     [{ text: PRACTICE_TYPE_LABELS[PRACTICE_TYPES.TRANSLATE] }],
     [{ text: PRACTICE_TYPE_LABELS[PRACTICE_TYPES.MULTIPLE_CHOICE] }],
-    [{ text: PRACTICE_TYPE_LABELS[PRACTICE_TYPES.FILL_BLANK] }],
+    // [{ text: PRACTICE_TYPE_LABELS[PRACTICE_TYPES.FILL_BLANK] }],
     [{ text: '❌ Cancel' }]
   ],
   resize_keyboard: true,
@@ -152,8 +152,8 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
   const getRandomPracticeType = () => {
     const types = [
       PRACTICE_TYPES.TRANSLATE,
-      PRACTICE_TYPES.MULTIPLE_CHOICE,
-      PRACTICE_TYPES.FILL_BLANK
+      PRACTICE_TYPES.MULTIPLE_CHOICE
+      // PRACTICE_TYPES.FILL_BLANK
     ];
     return types[Math.floor(Math.random() * types.length)];
   };
@@ -194,10 +194,10 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
         });
         break;
 
-      case 'fill_blank':
-        const sentence = await generateSentence(word.word, word.translation);
-        await bot.sendMessage(chatId, `[${category.name}]\n${sentence}`, cancelKeyboard);
-        break;
+      // case 'fill_blank':
+      //   const sentence = await generateSentence(word.word, word.translation);
+      //   await bot.sendMessage(chatId, `[${category.name}]\n${sentence}`, cancelKeyboard);
+      //   break;
     }
   };
 
@@ -378,9 +378,9 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
         case 'multiple_choice':
           isCorrect = answer === normalizeAnswer(state.correctAnswer);
           break;
-        case 'fill_blank':
-          isCorrect = answer === normalizeAnswer(state.word);
-          break;
+        // case 'fill_blank':
+        //   isCorrect = answer === normalizeAnswer(state.word);
+        //   break;
       }
 
       // Update word progress
