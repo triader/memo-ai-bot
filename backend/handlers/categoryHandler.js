@@ -17,12 +17,10 @@ export const createCategoryKeyboard = (
       text: `${cat.name} ${cat.id === currentCategory?.id ? '✅' : ''}`
     }
   ]);
-  if (includeNew) {
-    keyboard.push([{ text: BUTTONS.NEW_CATEGORY }]);
-  }
-  if (includeDelete) {
-    keyboard.push([{ text: BUTTONS.DELETE_CATEGORY }]);
-  }
+  const bottomRow = [];
+  if (includeNew) bottomRow.push({ text: BUTTONS.NEW_CATEGORY });
+  if (includeDelete) bottomRow.push({ text: BUTTONS.DELETE_CATEGORY });
+  if (bottomRow.length) keyboard.push(bottomRow);
 
   keyboard.push([{ text: BUTTONS.CANCEL }]);
 
