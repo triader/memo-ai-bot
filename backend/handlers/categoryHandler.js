@@ -10,7 +10,8 @@ export const createCategoryKeyboard = (
   categories,
   currentCategory,
   includeDelete = false,
-  includeNew = false
+  includeNew = false,
+  includeEdit = false
 ) => {
   const keyboard = categories.map((cat) => [
     {
@@ -19,6 +20,7 @@ export const createCategoryKeyboard = (
   ]);
   const bottomRow = [];
   if (includeNew) bottomRow.push({ text: BUTTONS.NEW_CATEGORY });
+  if (includeEdit) bottomRow.push({ text: BUTTONS.EDIT_CATEGORY });
   if (includeDelete) bottomRow.push({ text: BUTTONS.DELETE_CATEGORY });
   if (bottomRow.length) keyboard.push(bottomRow);
 
@@ -42,7 +44,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
 
   try {
     await bot.sendChatAction(chatId, 'typing');
-    if (text === BUTTONS.CHANGE_CATEGORY) {
+    if (text === BUTTONS.MANAGE_CATEGORY) {
       categories = await categoryService.getUserCategories(userId);
       const { currentCategory: dbCurrentCategory } =
         await userSettingsService.getCurrentCategory(userId);
@@ -64,7 +66,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
       message += '\nSelect a category, create new, or delete existing:';
 
       await bot.sendMessage(chatId, message, {
-        reply_markup: createCategoryKeyboard(categories, currentCategory, true, true)
+        reply_markup: createCategoryKeyboard(categories, currentCategory, true, true, true)
       });
 
       categoryStates.set(chatId, { step: 'selecting_category' });
@@ -77,7 +79,25 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
 
     switch (state.step) {
       case 'selecting_category':
-        if (text === '➕ New Category') {
+        if (text === BUTTONS.EDIT_CATEGORY) {
+          const categories = await categoryService.getUserCategories(userId);
+          const inlineKeyboard = categories.map((cat) => [
+            {
+              text: cat.name,
+              callback_data: `edit_category_${cat.id}`
+            }
+          ]);
+          inlineKeyboard.push([{ text: BUTTONS.CANCEL, callback_data: 'cancel_edit' }]);
+
+          await bot.sendMessage(chatId, 'Select a category to edit:', {
+            reply_markup: {
+              inline_keyboard: inlineKeyboard
+            }
+          });
+          return;
+        }
+
+        if (text === BUTTONS.NEW_CATEGORY) {
           await bot.sendMessage(
             chatId,
             'Please enter a name for the new category:',
@@ -87,7 +107,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
           return;
         }
 
-        if (text === '🗑️ Delete Category') {
+        if (text === BUTTONS.DELETE_CATEGORY) {
           const categories = await categoryService.getUserCategories(userId);
 
           if (categories.length === 1) {
@@ -136,7 +156,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
 
         if (!categoryToDelete) {
           await bot.sendMessage(chatId, '❌ Please select a valid category.', {
-            reply_markup: createCategoryKeyboard(categoriesToDelete, undefined, true)
+            reply_markup: createCategoryKeyboard(categories, undefined, true)
           });
           return;
         }
@@ -220,10 +240,66 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
         );
         stateManager.setState(BotState.IDLE);
         break;
+
+      case 'saving_edited_category':
+        const newName = text.trim();
+        if (!newName) {
+          await bot.sendMessage(chatId, '❌ Please enter a valid name.', cancelKeyboard);
+          return;
+        }
+
+        try {
+          await supabase
+            .from('categories')
+            .update({ name: newName })
+            .eq('id', state.categoryToEdit.id)
+            .eq('user_id', userId);
+
+          await bot.sendMessage(chatId, `✅ Category renamed to "${newName}"`, mainKeyboard);
+          categoryStates.delete(chatId);
+          stateManager.setState(BotState.IDLE);
+        } catch (error) {
+          console.error('Error editing category:', error);
+          await bot.sendMessage(
+            chatId,
+            '❌ Failed to edit category. Please try again.',
+            mainKeyboard
+          );
+          categoryStates.delete(chatId);
+        }
+        break;
     }
   } catch (error) {
     console.error('Error in category handler:', error);
     await bot.sendMessage(chatId, '❌ Failed to process category. Please try again.', mainKeyboard);
+    categoryStates.delete(chatId);
+    stateManager.setState(BotState.IDLE);
+  }
+};
+
+export const handleCategoryCallback = (bot) => async (callbackQuery) => {
+  const chatId = callbackQuery.message.chat.id;
+
+  try {
+    if (callbackQuery.data.startsWith('edit_category_')) {
+      const categoryId = callbackQuery.data.replace('edit_category_', '');
+      await bot.sendMessage(chatId, 'Enter new name for the category:', cancelKeyboard);
+      categoryStates.set(chatId, {
+        step: 'saving_edited_category',
+        categoryToEdit: { id: categoryId }
+      });
+      await bot.deleteMessage(chatId, callbackQuery.message.message_id);
+      await bot.answerCallbackQuery(callbackQuery.id);
+    } else if (callbackQuery.data === 'cancel_edit') {
+      await bot.deleteMessage(chatId, callbackQuery.message.message_id);
+      await bot.answerCallbackQuery(callbackQuery.id);
+      categoryStates.delete(chatId);
+      await bot.sendMessage(chatId, 'Category editing cancelled', mainKeyboard);
+      stateManager.setState(BotState.IDLE);
+    }
+  } catch (error) {
+    console.error('Error in category callback handler:', error);
+    await bot.sendMessage(chatId, '❌ An error occurred. Please try again.', mainKeyboard);
     categoryStates.delete(chatId);
     stateManager.setState(BotState.IDLE);
   }

@@ -4,7 +4,7 @@ export const mainKeyboard = {
   reply_markup: {
     keyboard: [
       [BUTTONS.ADD_WORD, BUTTONS.PRACTICE],
-      [BUTTONS.MY_WORDS, BUTTONS.CHANGE_CATEGORY],
+      [BUTTONS.MY_WORDS, BUTTONS.MANAGE_CATEGORY],
       [BUTTONS.MORE_OPTIONS]
     ],
     resize_keyboard: true
@@ -12,7 +12,7 @@ export const mainKeyboard = {
 };
 
 if (process.env.ENVIRONMENT === 'development') {
-  mainKeyboard.reply_markup.keyboard.push([{ text: BUTTONS.DEV_INDICATOR }]);
+  mainKeyboard.reply_markup.keyboard.push([BUTTONS.DEV_INDICATOR]);
 }
 
 export const mainKeyboardSecondary = {

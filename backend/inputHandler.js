@@ -8,7 +8,8 @@ import {
   bulkImportHandler,
   addWordHandler,
   practiceHandler,
-  translateAIHandler
+  translateAIHandler,
+  startHandler
 } from './handlers/index.js';
 import { userSettingsService } from './server.js';
 import { commandParser } from './utils/commandParser.js';
@@ -17,6 +18,7 @@ import { BotState, stateManager } from './utils/stateManager.js';
 import { deleteStates } from './handlers/deleteWordHandler.js';
 import { BUTTONS } from './constants/buttons.js';
 import { handleTranslationCallback } from './handlers/translateAIHandler.js';
+import { handleCategoryCallback } from './handlers/categoryHandler.js';
 
 export function inputHandler(bot) {
   bot.on('message', async (msg) => {
@@ -85,7 +87,7 @@ export function inputHandler(bot) {
           stateManager.setState(BotState.PRACTICING);
           await practiceHandler(bot, supabase, userSettingsService)(msg);
           break;
-        case BUTTONS.CHANGE_CATEGORY:
+        case BUTTONS.MANAGE_CATEGORY:
           stateManager.setState(BotState.CHANGING_CATEGORY);
           await categoryHandler(bot, supabase, userSettingsService)(msg);
           break;
@@ -127,6 +129,8 @@ export function inputHandler(bot) {
   });
 
   bot.on('callback_query', async (query) => {
+    await handleCategoryCallback(bot)(query);
+
     try {
       if (
         query.data.startsWith('translate_') ||
