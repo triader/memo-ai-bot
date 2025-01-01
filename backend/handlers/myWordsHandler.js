@@ -37,15 +37,8 @@ export const myWordsHandler = (bot, supabase, userSettingsService) => {
         .map((w) => {
           const progress = w.mastery_level || 0;
           const progressEmoji = progress >= 90 ? '🌟' : progress >= 50 ? '📈' : '🔄';
-          const correctAnswers = w.correct_answers || 0;
-          const incorrectAnswers = w.incorrect_answers || 0;
-          const totalAttempts = correctAnswers + incorrectAnswers;
 
-          return (
-            `${w.word} - ${w.translation}\n` +
-            `${progressEmoji} Progress: ${progress}% ` +
-            `(✅${correctAnswers} ❌${incorrectAnswers})`
-          );
+          return `${w.word} - ${w.translation}\n` + `${progressEmoji} Progress: ${progress}% `;
         })
         .join('\n\n');
 
