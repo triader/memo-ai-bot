@@ -8,7 +8,6 @@ import {
   bulkImportHandler,
   addWordHandler,
   practiceHandler,
-  translateAIHandler,
   startHandler
 } from './handlers/index.js';
 import { userSettingsService } from './server.js';
@@ -17,8 +16,8 @@ import { mainKeyboard, mainKeyboardSecondary } from './utils/keyboards.js';
 import { BotState, stateManager } from './utils/stateManager.js';
 import { deleteStates } from './handlers/deleteWordHandler.js';
 import { BUTTONS } from './constants/buttons.js';
-import { handleTranslationCallback } from './handlers/translateAIHandler.js';
 import { handleCategoryCallback } from './handlers/categoryHandler.js';
+import { translateAIHandler, handleTranslationCallback } from './features/index.js';
 
 export function inputHandler(bot) {
   bot.on('message', async (msg) => {
@@ -137,7 +136,7 @@ export function inputHandler(bot) {
         query.data.startsWith('add_trans_') ||
         query.data.startsWith('more_examples_')
       ) {
-        await handleTranslationCallback(bot, openai)(query);
+        await handleTranslationCallback(bot, supabase, openai)(query);
         return;
       }
 
