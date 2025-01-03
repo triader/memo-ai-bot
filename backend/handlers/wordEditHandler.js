@@ -1,4 +1,5 @@
 import { MESSAGES } from '../constants/messages.js';
+import { userSettingsService } from '../server.js';
 import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 import { stateManager } from '../utils/stateManager.js';
 
@@ -111,5 +112,6 @@ async function updateWord(chatId, userId, wordId, newWord, newTranslation, bot, 
 
   if (error) throw error;
 
-  await bot.sendMessage(chatId, MESSAGES.SUCCESS.WORD_UPDATED, mainKeyboard);
+  const keyboard = await mainKeyboard(userId);
+  await bot.sendMessage(chatId, '✅ Word updated successfully!', keyboard);
 }

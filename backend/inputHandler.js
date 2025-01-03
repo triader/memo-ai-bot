@@ -21,6 +21,8 @@ import { translateAIHandler, handleTranslationCallback } from './features/index.
 
 export function inputHandler(bot) {
   bot.on('message', async (msg) => {
+    const userId = msg.from.id;
+    const keyboard = await mainKeyboard(userId);
     try {
       const chatId = msg.chat.id;
       const text = msg.text;
@@ -28,7 +30,7 @@ export function inputHandler(bot) {
       // Handle cancel command globally
       if (text === BUTTONS.CANCEL) {
         stateManager.clearState();
-        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
+        await bot.sendMessage(chatId, 'Operation cancelled.', keyboard);
         return;
       }
 
@@ -64,18 +66,17 @@ export function inputHandler(bot) {
             break;
           case '/reset':
             stateManager.setState(BotState.IDLE);
-            await bot.sendMessage(chatId, 'The bot has been reset', mainKeyboard);
+            await bot.sendMessage(chatId, 'The bot has been reset', keyboard);
             break;
           default:
             await bot.sendMessage(
               chatId,
               '❓ Unknown command. Please use the menu buttons below.',
-              mainKeyboard
+              keyboard
             );
         }
         return;
       }
-
       // Handle menu buttons
       switch (text) {
         case BUTTONS.ADD_WORD:
@@ -85,10 +86,6 @@ export function inputHandler(bot) {
         case BUTTONS.PRACTICE:
           stateManager.setState(BotState.PRACTICING);
           await practiceHandler(bot, supabase, userSettingsService)(msg);
-          break;
-        case BUTTONS.MANAGE_CATEGORY:
-          stateManager.setState(BotState.CHANGING_CATEGORY);
-          await categoryHandler(bot, supabase, userSettingsService)(msg);
           break;
         case BUTTONS.IMPORT:
           stateManager.setState(BotState.IMPORTING);
@@ -109,9 +106,13 @@ export function inputHandler(bot) {
           await bot.sendMessage(chatId, 'Additional options:', mainKeyboardSecondary);
           break;
         case BUTTONS.BACK_TO_MAIN:
-          await bot.sendMessage(chatId, 'Main menu:', mainKeyboard);
+          await bot.sendMessage(chatId, 'Main menu:', keyboard);
           break;
         default:
+          if (text.startsWith(BUTTONS.MANAGE_CATEGORY)) {
+            stateManager.setState(BotState.CHANGING_CATEGORY);
+            await categoryHandler(bot, supabase, userSettingsService)(msg);
+          }
           if (stateManager.getState() === BotState.IDLE) {
             await translateAIHandler(bot, openai, userSettingsService)(msg);
           }
@@ -120,7 +121,7 @@ export function inputHandler(bot) {
       console.error('Error handling message:', error);
       stateManager.clearState();
       try {
-        await bot.sendMessage(msg.chat.id, '❌ An error occurred. Please try again.', mainKeyboard);
+        await bot.sendMessage(msg.chat.id, '❌ An error occurred. Please try again.', keyboard);
       } catch (sendError) {
         console.error('Error sending error message:', sendError);
       }
@@ -128,7 +129,7 @@ export function inputHandler(bot) {
   });
 
   bot.on('callback_query', async (query) => {
-    await handleCategoryCallback(bot)(query);
+    await handleCategoryCallback(bot, supabase, userSettingsService)(query);
 
     try {
       if (

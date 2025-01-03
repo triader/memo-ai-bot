@@ -4,12 +4,13 @@ export const myWordsHandler = (bot, supabase, userSettingsService) => {
   return async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
+    const keyboard = await mainKeyboard(userId);
 
     try {
       const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
       if (!currentCategory) {
-        await bot.sendMessage(chatId, 'You need to add some words first!', mainKeyboard);
+        await bot.sendMessage(chatId, 'You need to add some words first!', keyboard);
         return;
       }
 
@@ -27,7 +28,7 @@ export const myWordsHandler = (bot, supabase, userSettingsService) => {
         await bot.sendMessage(
           chatId,
           `No words found in category "${currentCategory.name}". Add some words first!`,
-          mainKeyboard
+          keyboard
         );
         return;
       }
@@ -50,10 +51,10 @@ export const myWordsHandler = (bot, supabase, userSettingsService) => {
         `📈 - Learning (50-89%)\n` +
         `🔄 - Needs practice (0-49%)`;
 
-      await bot.sendMessage(chatId, message, mainKeyboard);
+      await bot.sendMessage(chatId, message, keyboard);
     } catch (error) {
       console.error('Error fetching words:', error);
-      await bot.sendMessage(chatId, '❌ Failed to fetch words. Please try again.', mainKeyboard);
+      await bot.sendMessage(chatId, '❌ Failed to fetch words. Please try again.', keyboard);
     }
   };
 };
@@ -61,15 +62,16 @@ export const myWordsHandler = (bot, supabase, userSettingsService) => {
 export const handleWordDelete = (bot, supabase) => async (msg, wordId) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
+  const keyboard = await mainKeyboard(userId);
 
   try {
     const { error } = await supabase.from('words').delete().eq('id', wordId).eq('user_id', userId);
 
     if (error) throw error;
 
-    await bot.sendMessage(chatId, '✅ Word deleted successfully.', mainKeyboard);
+    await bot.sendMessage(chatId, '✅ Word deleted successfully.', keyboard);
   } catch (error) {
     console.error('Error deleting word:', error);
-    await bot.sendMessage(chatId, '❌ Failed to delete word.');
+    await bot.sendMessage(chatId, '❌ Failed to delete word.', keyboard);
   }
 };

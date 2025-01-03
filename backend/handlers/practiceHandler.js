@@ -205,6 +205,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const text = msg.text;
+    const keyboard = await mainKeyboard(userId);
 
     try {
       await bot.sendChatAction(chatId, 'typing');
@@ -212,7 +213,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
         const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
         if (!currentCategory) {
-          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_WORDS, mainKeyboard);
+          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_WORDS, keyboard);
           return;
         }
 
@@ -255,7 +256,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
           await bot.sendMessage(
             chatId,
             MESSAGES.ERRORS.NO_PRACTICE_WORDS(state.currentCategory.name),
-            mainKeyboard
+            keyboard
           );
           practiceStates.delete(chatId);
           return;
@@ -285,7 +286,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
         await bot.sendMessage(
           chatId,
           MESSAGES.WORD_SKIPPED,
-          state.sessionProgress === WORDS_PER_SESSION ? mainKeyboard : cancelKeyboard
+          state.sessionProgress === WORDS_PER_SESSION ? keyboard : cancelKeyboard
         );
 
         // Update session results for the skipped word
@@ -321,7 +322,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
             practicedWordsDetails,
             updatedSessionResults
           );
-          await bot.sendMessage(chatId, summaryMessage, mainKeyboard);
+          await bot.sendMessage(chatId, summaryMessage, keyboard);
           practiceStates.delete(chatId);
           stateManager.clearState();
           return;
@@ -330,7 +331,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
         // If session continues, get next word
         const nextWordData = await getNextWord(userId, state.currentCategory, state.practicedWords);
         if (!nextWordData) {
-          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_MORE_WORDS, mainKeyboard);
+          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_MORE_WORDS, keyboard);
           practiceStates.delete(chatId);
           stateManager.clearState();
           return;
@@ -396,7 +397,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
           : MESSAGES.SUCCESS.WRONG_ANSWER(
               state.practiceType === 'fill_blank' ? state.word : state.correctAnswer
             ),
-        state.sessionProgress === WORDS_PER_SESSION ? mainKeyboard : cancelKeyboard
+        state.sessionProgress === WORDS_PER_SESSION ? keyboard : cancelKeyboard
       );
 
       // Check if session is complete
@@ -431,7 +432,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
           practicedWordsDetails,
           finalSessionResults
         );
-        await bot.sendMessage(chatId, summaryMessage, mainKeyboard);
+        await bot.sendMessage(chatId, summaryMessage, keyboard);
         practiceStates.delete(chatId);
         stateManager.clearState();
         return;
@@ -440,7 +441,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       // Get next word
       const nextWordData = await getNextWord(userId, state.currentCategory, state.practicedWords);
       if (!nextWordData) {
-        await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_MORE_WORDS, mainKeyboard);
+        await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_MORE_WORDS, keyboard);
         practiceStates.delete(chatId);
         stateManager.clearState();
         return;
@@ -474,7 +475,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       );
     } catch (error) {
       console.error('Practice error:', error);
-      await bot.sendMessage(chatId, MESSAGES.ERRORS.PRACTICE, mainKeyboard);
+      await bot.sendMessage(chatId, MESSAGES.ERRORS.PRACTICE, keyboard);
       practiceStates.delete(chatId);
       stateManager.clearState();
     }

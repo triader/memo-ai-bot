@@ -2,16 +2,13 @@ import { mainKeyboard } from '../utils/keyboards.js';
 
 export const startHandler = (bot) => async (msg) => {
   const chatId = msg.chat.id;
-  const message = `
-Welcome to the Language Learning Bot! 🎉
+  const userId = msg.from.id;
 
-Click the buttons below to:
-• Add new words to learn
-• Practice existing words
-• Get translations and explanations
-
-Let's start learning! 📚
-`;
-
-  await bot.sendMessage(chatId, message, mainKeyboard);
+  try {
+    // Welcome message
+    const keyboard = await mainKeyboard(userId);
+    await bot.sendMessage(chatId, 'Welcome to the Language Learning Bot!', keyboard);
+  } catch (error) {
+    console.error('Error in start handler:', error);
+  }
 };
