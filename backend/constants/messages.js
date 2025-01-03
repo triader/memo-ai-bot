@@ -12,11 +12,12 @@ export const MESSAGES = {
     INVALID_PRACTICE_TYPE: '❌ Please select a valid practice type or cancel.',
     WORD_NOT_FOUND: '❌ Word not found. Please try again.',
     EDIT_CANCELLED: '❌ Edit cancelled.',
-    DELETE_CANCELLED: '❌ Delete cancelled.'
+    DELETE_CANCELLED: '❌ Delete cancelled.',
+    PRACTICE_SUMMARY:
+      '❌ Sorry, there was an error creating your practice summary. Please try again.'
   },
 
   SUCCESS: {
-    PRACTICE_COMPLETE: '🎉 Practice session complete!',
     CORRECT_ANSWER: '✅ Correct!',
     WRONG_ANSWER: (correctAnswer) => `❌ Wrong. The correct answer is: ${correctAnswer}`,
     WORD_UPDATED: '✅ Word has been updated successfully!',
@@ -50,7 +51,8 @@ export const MESSAGES = {
     PRACTICED_WORDS: 'Practiced words:',
     FOOTER: 'Keep practicing to improve your vocabulary!'
   },
-  WORD_SKIPPED: 'Skipping the word'
+  WORD_SKIPPED: (word, translation, isNextWord) =>
+    `The word "${word}" means "${translation}".\n\n${isNextWord ? '⏭️ Moving to next word...' : ''}`
 };
 
 export const EMOJIS = {

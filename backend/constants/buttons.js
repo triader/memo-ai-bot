@@ -15,5 +15,6 @@ export const BUTTONS = {
   DEV_INDICATOR: 'This is DEV',
   MORE_EXAMPLES: '🔄 More examples',
   FOLLOW_UP: '💭 Follow-up',
-  CREATE_CATEGORY: '➕ Create Category'
+  CREATE_CATEGORY: '➕ Create Category',
+  SKIP: "🤔 I don't know"
 };

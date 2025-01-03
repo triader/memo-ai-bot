@@ -1,159 +1,28 @@
 import { updateWordProgress } from './updateWordProgressHandler.js';
-import { mainKeyboard } from '../utils/keyboards.js';
-import { MESSAGES, EMOJIS } from '../constants/messages.js';
+import { mainKeyboard, removeKeyboard } from '../utils/keyboards.js';
+import { MESSAGES } from '../constants/messages.js';
 import { stateManager } from '../utils/stateManager.js';
 import { BUTTONS } from '../constants/buttons.js';
+import { createSummaryMessage } from '../features/practice/index.js';
+import { normalizeAnswer } from '../features/practice/utils/normalizeAnswer.js';
+import { PracticeService } from '../features/practice/services/practiceService.js';
+import {
+  WORDS_PER_SESSION,
+  PRACTICE_TYPES,
+  PRACTICE_TYPE_LABELS
+} from '../features/practice/constants/index.js';
+import {
+  createPracticeTypeKeyboard,
+  createMultipleChoiceKeyboard
+} from '../features/practice/utils/keyboards.js';
 
-// Constants
-const WORDS_PER_SESSION = 5;
-
-const PRACTICE_TYPES = {
-  RANDOM: 'random',
-  TRANSLATE: 'translate',
-  MULTIPLE_CHOICE: 'multiple_choice',
-  FILL_BLANK: 'fill_blank'
-};
-
-const PRACTICE_TYPE_LABELS = {
-  [PRACTICE_TYPES.RANDOM]: '🎲 Random Practice',
-  [PRACTICE_TYPES.TRANSLATE]: '📝 Translation',
-  [PRACTICE_TYPES.MULTIPLE_CHOICE]: '✅ Multiple Choice',
-  [PRACTICE_TYPES.FILL_BLANK]: '📝 Fill in Blank'
-};
-
-// Define cancel keyboard with skip button
-const cancelKeyboard = {
-  reply_markup: {
-    keyboard: [[{ text: '⏭️ Skip' }], [{ text: '❌ Cancel' }]],
-    resize_keyboard: true
-  }
-};
-
-// Create practice type selection keyboard
-const createPracticeTypeKeyboard = () => ({
-  keyboard: [
-    [{ text: PRACTICE_TYPE_LABELS[PRACTICE_TYPES.RANDOM] }],
-    [{ text: PRACTICE_TYPE_LABELS[PRACTICE_TYPES.TRANSLATE] }],
-    [{ text: PRACTICE_TYPE_LABELS[PRACTICE_TYPES.MULTIPLE_CHOICE] }],
-    // [{ text: PRACTICE_TYPE_LABELS[PRACTICE_TYPES.FILL_BLANK] }],
-    [{ text: '❌ Cancel' }]
-  ],
-  resize_keyboard: true,
-  one_time_keyboard: true
-});
-
-// Store practice states
 export const practiceStates = new Map();
 
-// Helper function to normalize answers
-const normalizeAnswer = (text) => {
-  // Convert to lowercase and trim
-  let normalized = text.trim().toLowerCase();
-
-  // Remove leading "to " for verbs
-  if (normalized.startsWith('to ')) {
-    normalized = normalized.slice(3);
-  }
-
-  // Remove leading "a " or "an " for nouns
-  if (normalized.startsWith('a ')) {
-    normalized = normalized.slice(2);
-  } else if (normalized.startsWith('an ')) {
-    normalized = normalized.slice(3);
-  }
-
-  return normalized;
-};
-
-// Add this helper function near the top with other helper functions
-const createSummaryMessage = (sessionStats, practicedWordsDetails, sessionResults) => {
-  const percentage = Math.round((sessionStats.correct / sessionStats.total) * 100);
-  const performanceEmoji =
-    percentage >= 90
-      ? EMOJIS.PERFORMANCE.EXCELLENT
-      : percentage >= 70
-        ? EMOJIS.PERFORMANCE.GOOD
-        : percentage >= 50
-          ? EMOJIS.PERFORMANCE.FAIR
-          : EMOJIS.PERFORMANCE.LEARNING;
-
-  const wordsList = practicedWordsDetails
-    .map((word) => {
-      const result = sessionResults[word.id];
-      const resultEmoji = result === true ? '✅' : result === 'skipped' ? '⏭️' : '❌';
-      const progress = word.mastery_level || 0;
-      const progressEmoji = progress >= 90 ? '🌟' : progress >= 50 ? '📈' : '🔄';
-
-      return (
-        `${resultEmoji} ${word.word} - ${word.translation}\n` +
-        `   ${progressEmoji} Current progress: ${progress}%`
-      );
-    })
-    .join('\n\n');
-
-  return (
-    MESSAGES.PRACTICE_SUMMARY.HEADER +
-    MESSAGES.PRACTICE_SUMMARY.OVERALL_RESULTS +
-    MESSAGES.PRACTICE_SUMMARY.CORRECT(sessionStats.correct) +
-    MESSAGES.PRACTICE_SUMMARY.WRONG(
-      sessionStats.total - sessionStats.correct - sessionStats.skipped
-    ) +
-    MESSAGES.PRACTICE_SUMMARY.SKIPPED(sessionStats.skipped) +
-    MESSAGES.PRACTICE_SUMMARY.SUCCESS_RATE(performanceEmoji, percentage) +
-    MESSAGES.PRACTICE_SUMMARY.PRACTICED_WORDS +
-    wordsList +
-    '\n\n' +
-    MESSAGES.PRACTICE_SUMMARY.FOOTER
-  );
-};
-
 export const practiceHandler = (bot, supabase, userSettingsService) => {
-  const getNextWord = async (userId, currentCategory, previousWords = []) => {
-    // Get current timestamp minus 24 hours
-    const oneDayAgo = new Date();
-    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
-
-    // Get words for practice, excluding:
-    // 1. Previously practiced ones in this session
-    // 2. Words practiced in the last 24 hours
-    // 3. Words with mastery level >= 90
-    const { data: words, error } = await supabase
-      .from('words')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('category_id', currentCategory.id)
-      .lt('mastery_level', 90)
-      .or(`last_practiced.is.null,last_practiced.lt.${oneDayAgo.toISOString()}`)
-      .not('id', 'in', `(${previousWords.join(',')})`)
-      .order('last_practiced', { ascending: true, nullsFirst: true })
-      .limit(1);
-
-    if (error) {
-      console.error('Error fetching word:', error);
-      throw error;
-    }
-    if (!words?.length) return null;
-
-    // For multiple choice, also fetch other translations
-    const { data: otherWords, error: otherError } = await supabase
-      .from('words')
-      .select('translation')
-      .eq('category_id', currentCategory.id)
-      .neq('id', words[0].id)
-      .limit(10);
-
-    return {
-      word: words[0],
-      otherTranslations: otherWords?.map((w) => w.translation) || []
-    };
-  };
+  const practiceService = new PracticeService(supabase);
 
   const getRandomPracticeType = () => {
-    const types = [
-      PRACTICE_TYPES.TRANSLATE,
-      PRACTICE_TYPES.MULTIPLE_CHOICE
-      // PRACTICE_TYPES.FILL_BLANK
-    ];
+    const types = [PRACTICE_TYPES.TRANSLATE, PRACTICE_TYPES.MULTIPLE_CHOICE];
     return types[Math.floor(Math.random() * types.length)];
   };
 
@@ -162,41 +31,119 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
 
     switch (practiceType) {
       case 'translate':
-        await bot.sendMessage(chatId, MESSAGES.PROMPTS.TRANSLATE_WORD(word.word), cancelKeyboard);
+        await bot.sendMessage(chatId, MESSAGES.PROMPTS.TRANSLATE_WORD(word.word), removeKeyboard);
         break;
 
       case 'multiple_choice':
-        // Create and shuffle options
         let options = [word.translation];
         if (otherTranslations.length) {
           const shuffled = otherTranslations
             .filter((t) => t !== word.translation)
             .sort(() => Math.random() - 0.5)
             .slice(0, 3);
-          options = [...shuffled, word.translation];
+          options = [...shuffled, word.translation].sort(() => Math.random() - 0.5);
         }
-        options.sort(() => Math.random() - 0.5);
-
-        // Add options as keyboard buttons and include Skip and Cancel buttons
-        const keyboard = [
-          ...options.map((option) => [{ text: option }]),
-          [{ text: '⏭️ Skip' }],
-          [{ text: '❌ Cancel' }]
-        ];
-
-        await bot.sendMessage(chatId, MESSAGES.PROMPTS.CHOOSE_TRANSLATION(word.word), {
-          reply_markup: {
-            keyboard,
-            one_time_keyboard: true,
-            resize_keyboard: true
-          }
-        });
+        await bot.sendMessage(
+          chatId,
+          MESSAGES.PROMPTS.CHOOSE_TRANSLATION(word.word),
+          createMultipleChoiceKeyboard(options)
+        );
         break;
+    }
+  };
 
-      // case 'fill_blank':
-      //   const sentence = await generateSentence(word.word, word.translation);
-      //   await bot.sendMessage(chatId, `[${category.name}]\n${sentence}`, cancelKeyboard);
-      //   break;
+  const handleAnswerResult = async (chatId, state, userId, result, keyboard, isSkipped = false) => {
+    // Update word progress if not skipped
+    if (state.wordId && !isSkipped) {
+      await updateWordProgress(supabase, state.wordId, result);
+    }
+
+    // Get next word first to check if session should continue
+    const nextWordData = await practiceService.getNextWord(
+      userId,
+      state.currentCategory,
+      state.practicedWords
+    );
+    const isNextWord = !!nextWordData && state.sessionProgress < WORDS_PER_SESSION;
+
+    // Send feedback message
+    await bot.sendMessage(
+      chatId,
+      isSkipped
+        ? MESSAGES.WORD_SKIPPED(state.word, state.correctAnswer, isNextWord)
+        : result
+          ? MESSAGES.SUCCESS.CORRECT_ANSWER
+          : MESSAGES.SUCCESS.WRONG_ANSWER(state.correctAnswer),
+      state.sessionProgress === WORDS_PER_SESSION ? keyboard : removeKeyboard
+    );
+
+    // Check if session is complete
+    if (state.sessionProgress >= WORDS_PER_SESSION || !nextWordData) {
+      await handleSessionComplete(
+        chatId,
+        state,
+        { ...state.sessionResults, [state.wordId]: isSkipped ? 'skipped' : result },
+        keyboard
+      );
+      return;
+    }
+
+    // Update state for next word
+    const nextPracticeType =
+      state.selectedType === PRACTICE_TYPES.RANDOM ? getRandomPracticeType() : state.selectedType;
+
+    practiceStates.set(chatId, {
+      ...state,
+      wordId: nextWordData.word.id,
+      word: nextWordData.word.word,
+      correctAnswer: nextWordData.word.translation,
+      practiceType: nextPracticeType,
+      sessionProgress: state.sessionProgress + 1,
+      practicedWords: [...state.practicedWords, nextWordData.word.id],
+      sessionResults: {
+        ...(state.sessionResults || {}),
+        [state.wordId]: isSkipped ? 'skipped' : result
+      }
+    });
+
+    // Send next practice question
+    await sendPracticeQuestion(bot, chatId, nextWordData, nextPracticeType, state.currentCategory);
+  };
+
+  const handleSessionComplete = async (chatId, state, finalSessionResults, keyboard) => {
+    try {
+      const practicedWordsDetails = await practiceService.getPracticedWordsDetails(
+        state.practicedWords
+      );
+
+      if (!practicedWordsDetails?.length) {
+        throw new Error('No practiced words details found');
+      }
+
+      const sessionStats = state.practicedWords.reduce(
+        (stats, wordId) => {
+          const result = finalSessionResults[wordId];
+          return {
+            correct: stats.correct + (result === true ? 1 : 0),
+            skipped: stats.skipped + (result === 'skipped' ? 1 : 0),
+            total: stats.total + 1
+          };
+        },
+        { correct: 0, skipped: 0, total: 0 }
+      );
+
+      const summaryMessage = createSummaryMessage(
+        sessionStats,
+        practicedWordsDetails,
+        finalSessionResults
+      );
+      await bot.sendMessage(chatId, summaryMessage, keyboard);
+    } catch (error) {
+      console.error('Error creating practice summary:', error);
+      await bot.sendMessage(chatId, MESSAGES.ERRORS.PRACTICE_SUMMARY, keyboard);
+    } finally {
+      practiceStates.delete(chatId);
+      stateManager.clearState();
     }
   };
 
@@ -225,7 +172,6 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       const state = practiceStates.get(chatId);
       if (!state) return;
 
-      // Handle practice type selection
       if (state.step === 'selecting_type') {
         let selectedType;
 
@@ -243,8 +189,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
           return;
         }
 
-        // Initialize practice session
-        const wordData = await getNextWord(userId, state.currentCategory);
+        const wordData = await practiceService.getNextWord(userId, state.currentCategory);
 
         if (!wordData) {
           await bot.sendMessage(
@@ -275,198 +220,17 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
         return;
       }
 
-      // Handle skip command
-      if (text === '⏭️ Skip') {
-        await bot.sendMessage(
-          chatId,
-          MESSAGES.WORD_SKIPPED,
-          state.sessionProgress === WORDS_PER_SESSION ? keyboard : cancelKeyboard
-        );
-
-        // Update session results for the skipped word
-        const updatedSessionResults = {
-          ...(state.sessionResults || {}),
-          [state.wordId]: 'skipped' // Mark as skipped instead of false
-        };
-
-        // Check if session is complete
-        if (state.sessionProgress >= WORDS_PER_SESSION) {
-          // Get details of practiced words
-          const { data: practicedWordsDetails } = await supabase
-            .from('words')
-            .select('*')
-            .in('id', state.practicedWords);
-
-          // Calculate and show final statistics
-          const sessionStats = state.practicedWords.reduce(
-            (stats, wordId) => {
-              const result = updatedSessionResults[wordId];
-              return {
-                correct: stats.correct + (result === true ? 1 : 0),
-                skipped: stats.skipped + (result === 'skipped' ? 1 : 0),
-                total: stats.total + 1
-              };
-            },
-            { correct: 0, skipped: 0, total: 0 }
-          );
-
-          // Show summary and end session
-          const summaryMessage = createSummaryMessage(
-            sessionStats,
-            practicedWordsDetails,
-            updatedSessionResults
-          );
-          await bot.sendMessage(chatId, summaryMessage, keyboard);
-          practiceStates.delete(chatId);
-          stateManager.clearState();
-          return;
-        }
-
-        // If session continues, get next word
-        const nextWordData = await getNextWord(userId, state.currentCategory, state.practicedWords);
-        if (!nextWordData) {
-          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_MORE_WORDS, keyboard);
-          practiceStates.delete(chatId);
-          stateManager.clearState();
-          return;
-        }
-
-        // Update state for next word
-        const nextPracticeType =
-          state.selectedType === PRACTICE_TYPES.RANDOM
-            ? getRandomPracticeType()
-            : state.selectedType;
-
-        practiceStates.set(chatId, {
-          ...state,
-          wordId: nextWordData.word.id,
-          word: nextWordData.word.word,
-          correctAnswer: nextWordData.word.translation,
-          practiceType: nextPracticeType,
-          sessionProgress: state.sessionProgress + 1,
-          practicedWords: [...state.practicedWords, nextWordData.word.id],
-          sessionResults: updatedSessionResults
-        });
-
-        // Send next practice question
-        await sendPracticeQuestion(
-          bot,
-          chatId,
-          nextWordData,
-          nextPracticeType,
-          state.currentCategory
-        );
+      if (text === BUTTONS.SKIP) {
+        await handleAnswerResult(chatId, state, userId, false, keyboard, true);
         return;
       }
 
-      // Handle answer
       if (!state.isWaitingForAnswer) return;
 
-      // Check answer
       const answer = normalizeAnswer(text);
-      let isCorrect = false;
+      const isCorrect = answer === normalizeAnswer(state.correctAnswer);
 
-      switch (state.practiceType) {
-        case 'translate':
-          isCorrect = answer === normalizeAnswer(state.correctAnswer);
-          break;
-        case 'multiple_choice':
-          isCorrect = answer === normalizeAnswer(state.correctAnswer);
-          break;
-        // case 'fill_blank':
-        //   isCorrect = answer === normalizeAnswer(state.word);
-        //   break;
-      }
-
-      // Update word progress
-      if (state.wordId) {
-        await updateWordProgress(supabase, state.wordId, isCorrect);
-      }
-
-      // Send feedback
-      await bot.sendMessage(
-        chatId,
-        isCorrect
-          ? MESSAGES.SUCCESS.CORRECT_ANSWER
-          : MESSAGES.SUCCESS.WRONG_ANSWER(
-              state.practiceType === 'fill_blank' ? state.word : state.correctAnswer
-            ),
-        state.sessionProgress === WORDS_PER_SESSION ? keyboard : cancelKeyboard
-      );
-
-      // Check if session is complete
-      if (state.sessionProgress >= WORDS_PER_SESSION) {
-        // Update session results with the last answer first
-        const finalSessionResults = {
-          ...(state.sessionResults || {}),
-          [state.wordId]: isCorrect
-        };
-
-        // Get details of practiced words
-        const { data: practicedWordsDetails } = await supabase
-          .from('words')
-          .select('*')
-          .in('id', state.practicedWords);
-
-        // Calculate session statistics
-        const sessionStats = state.practicedWords.reduce(
-          (stats, wordId) => {
-            const result = finalSessionResults[wordId];
-            return {
-              correct: stats.correct + (result === true ? 1 : 0),
-              skipped: stats.skipped + (result === 'skipped' ? 1 : 0),
-              total: stats.total + 1
-            };
-          },
-          { correct: 0, skipped: 0, total: 0 }
-        );
-
-        const summaryMessage = createSummaryMessage(
-          sessionStats,
-          practicedWordsDetails,
-          finalSessionResults
-        );
-        await bot.sendMessage(chatId, summaryMessage, keyboard);
-        practiceStates.delete(chatId);
-        stateManager.clearState();
-        return;
-      }
-
-      // Get next word
-      const nextWordData = await getNextWord(userId, state.currentCategory, state.practicedWords);
-      if (!nextWordData) {
-        await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_MORE_WORDS, keyboard);
-        practiceStates.delete(chatId);
-        stateManager.clearState();
-        return;
-      }
-
-      // Update state for next word
-      const nextPracticeType =
-        state.selectedType === PRACTICE_TYPES.RANDOM ? getRandomPracticeType() : state.selectedType;
-
-      practiceStates.set(chatId, {
-        ...state,
-        wordId: nextWordData.word.id,
-        word: nextWordData.word.word,
-        correctAnswer: nextWordData.word.translation,
-        practiceType: nextPracticeType,
-        sessionProgress: state.sessionProgress + 1,
-        practicedWords: [...state.practicedWords, nextWordData.word.id],
-        sessionResults: {
-          ...(state.sessionResults || {}),
-          [state.wordId]: isCorrect
-        }
-      });
-
-      // Send next practice question
-      await sendPracticeQuestion(
-        bot,
-        chatId,
-        nextWordData,
-        nextPracticeType,
-        state.currentCategory
-      );
+      await handleAnswerResult(chatId, state, userId, isCorrect, keyboard, false);
     } catch (error) {
       console.error('Practice error:', error);
       await bot.sendMessage(chatId, MESSAGES.ERRORS.PRACTICE, keyboard);
