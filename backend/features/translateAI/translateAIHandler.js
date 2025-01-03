@@ -69,14 +69,16 @@ export function translateAIHandler(bot, openai, userSettingsService) {
           }
         });
 
-        await bot.sendMessage(chatId, 'Let me know if you have any more questions!', mainKeyboard);
+        const keyboard = await mainKeyboard(userId);
+        await bot.sendMessage(chatId, 'Let me know if you have any more questions!', keyboard);
 
         translationStore.delete(`followup_${chatId}`);
 
         return;
       } catch (error) {
         console.error('Follow-up error:', error);
-        await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, mainKeyboard);
+        const keyboard = await mainKeyboard(userId);
+        await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, keyboard);
         translationStore.delete(`followup_${chatId}`);
         return;
       }

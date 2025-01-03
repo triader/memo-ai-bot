@@ -163,11 +163,13 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
             .eq('id', state.categoryToEdit.id)
             .eq('user_id', userId);
 
+          const keyboard = mainKeyboardNewCategory(newName);
           await bot.sendMessage(chatId, `✅ Category renamed to "${newName}"`, keyboard);
           categoryStates.delete(chatId);
           stateManager.setState(BotState.IDLE);
         } catch (error) {
           console.error('Error editing category:', error);
+          const keyboard = await mainKeyboard(userId);
           await bot.sendMessage(chatId, '❌ Failed to edit category. Please try again.', keyboard);
           categoryStates.delete(chatId);
         }
@@ -202,7 +204,7 @@ export const handleCategoryCallback =
         await bot.sendMessage(
           chatId,
           `✅ Current category changed to "${category.name}"`,
-          keyboard
+          mainKeyboardNewCategory(category.name)
         );
         await bot.answerCallbackQuery(callbackQuery.id);
         stateManager.setState(BotState.IDLE);

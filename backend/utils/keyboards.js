@@ -1,10 +1,13 @@
 import { BUTTONS } from '../constants/buttons.js';
 import { userSettingsService } from '../server.js';
 
+// Helper function to format category button text
+const formatCategoryButton = (categoryName) => `📚 ${categoryName || 'Select Category'}`;
+
 // Helper function to get the current category button text
 const getCategoryButtonText = async (userId) => {
   const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
-  return `📚 ${currentCategory?.name || 'Select Category'}`;
+  return formatCategoryButton(currentCategory?.name);
 };
 
 export const getMainKeyboard = async (userId) => {
@@ -15,7 +18,7 @@ export const getMainKeyboard = async (userId) => {
       keyboard: [
         [BUTTONS.ADD_WORD, BUTTONS.PRACTICE],
         [BUTTONS.MY_WORDS, BUTTONS.MORE_OPTIONS],
-        [categoryButton]
+        [{ text: categoryButton }]
       ],
       resize_keyboard: true
     }
@@ -28,7 +31,7 @@ export const mainKeyboardNewCategory = (categoryName) => {
       keyboard: [
         [BUTTONS.ADD_WORD, BUTTONS.PRACTICE],
         [BUTTONS.MY_WORDS, BUTTONS.MORE_OPTIONS],
-        [categoryName]
+        [formatCategoryButton(categoryName)]
       ],
       resize_keyboard: true
     }

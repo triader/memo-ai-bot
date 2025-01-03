@@ -61,7 +61,8 @@ export const wordEditHandler = (bot, supabase) => {
       return true; // Message was handled
     } catch (error) {
       console.error('Error in word edit:', error);
-      await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, mainKeyboard);
+      const keyboard = await mainKeyboard(userId);
+      await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, keyboard);
       editStates.delete(chatId);
       stateManager.clearState();
       return true; // Consider errors as handled
@@ -80,7 +81,8 @@ async function findAndSetupWordEdit(chatId, userId, wordToFind, bot, supabase) {
     .limit(1);
 
   if (error || !words?.length) {
-    await bot.sendMessage(chatId, MESSAGES.ERRORS.WORD_NOT_FOUND, mainKeyboard);
+    const keyboard = await mainKeyboard(userId);
+    await bot.sendMessage(chatId, MESSAGES.ERRORS.WORD_NOT_FOUND, keyboard);
     editStates.delete(chatId);
     stateManager.clearState();
     return;

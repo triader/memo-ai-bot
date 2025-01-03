@@ -19,7 +19,6 @@ export function deleteWordHandler(bot, supabase, userSettingsService) {
 
       try {
         await findAndDeleteWord(userId, wordToDelete, supabase, currentCategory.id);
-        const keyboard = await mainKeyboard(userId);
         await bot.editMessageText(MESSAGES.SUCCESS.WORD_DELETED(wordToDelete), {
           chat_id: chatId,
           message_id: msg.callback_query.message.message_id,
