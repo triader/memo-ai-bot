@@ -5,11 +5,6 @@ import { BotState, stateManager } from '../utils/stateManager.js';
 // Store category management states
 export const categoryStates = new Map();
 
-export const updateManageCategoryButton = async (userId, userSettingsService) => {
-  const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
-  return `📚 ${currentCategory?.name || 'Select Category'}`;
-};
-
 export const categoryHandler = (bot, supabase, userSettingsService) => async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
@@ -20,7 +15,6 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
     // Check if the text starts with "📚" to handle category management
     if (text.startsWith('📚')) {
       const categories = await categoryService.getUserCategories(userId);
-      const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
       if (!categories?.length) {
         await bot.sendMessage(
@@ -31,6 +25,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
         categoryStates.set(chatId, { step: 'creating_category' });
         return;
       }
+      const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
       // Create inline keyboard for categories with edit/delete buttons on separate rows
       const inlineKeyboard = categories.flatMap((cat) => [

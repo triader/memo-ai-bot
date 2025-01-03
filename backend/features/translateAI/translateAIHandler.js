@@ -88,14 +88,6 @@ export function translateAIHandler(bot, openai, userSettingsService) {
     if (stateManager.getState() === BotState.IDLE && text) {
       const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
-      if (!currentCategory) {
-        await bot.sendMessage(
-          chatId,
-          '⚠️ Please create a category first so that chatgpt knows what language to translate to'
-        );
-        return;
-      }
-
       try {
         await bot.sendChatAction(chatId, 'typing');
         const completion = await openai.chat.completions.create({

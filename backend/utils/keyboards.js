@@ -13,7 +13,6 @@ const getCategoryButtonText = async (userId) => {
 };
 
 export const getMainKeyboard = async (userId) => {
-  const categoryButton = await getCategoryButtonText(userId);
   const categoryService = new CategoryService(supabase);
   const hasCategories = await categoryService.hasCategories(userId);
 
@@ -25,6 +24,8 @@ export const getMainKeyboard = async (userId) => {
       }
     };
   }
+
+  const categoryButton = await getCategoryButtonText(userId);
 
   return {
     reply_markup: {

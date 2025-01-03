@@ -1,4 +1,3 @@
-import { generateSentence } from '../utils/openai.js';
 import { updateWordProgress } from './updateWordProgressHandler.js';
 import { mainKeyboard } from '../utils/keyboards.js';
 import { MESSAGES, EMOJIS } from '../constants/messages.js';
@@ -211,11 +210,6 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       await bot.sendChatAction(chatId, 'typing');
       if (text === BUTTONS.PRACTICE) {
         const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
-
-        if (!currentCategory) {
-          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_WORDS, keyboard);
-          return;
-        }
 
         await bot.sendMessage(chatId, MESSAGES.PROMPTS.CHOOSE_PRACTICE_TYPE, {
           reply_markup: createPracticeTypeKeyboard()
