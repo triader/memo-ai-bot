@@ -9,11 +9,6 @@ export const myWordsHandler = (bot, supabase, userSettingsService) => {
     try {
       const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
-      if (!currentCategory) {
-        await bot.sendMessage(chatId, 'You need to add some words first!', keyboard);
-        return;
-      }
-
       // Get words for current category with progress info
       const { data: words, error } = await supabase
         .from('words')

@@ -31,7 +31,7 @@ export class ExcelProcessor {
       category_id: categoryId,
       word: row.word.trim(),
       translation: row.translation.trim(),
-      created_at: new Date(),
+      created_at: new Date()
     }));
   }
 }

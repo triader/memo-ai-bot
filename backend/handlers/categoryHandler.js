@@ -5,11 +5,6 @@ import { BotState, stateManager } from '../utils/stateManager.js';
 // Store category management states
 export const categoryStates = new Map();
 
-export const updateManageCategoryButton = async (userId, userSettingsService) => {
-  const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
-  return `📚 ${currentCategory?.name || 'Select Category'}`;
-};
-
 export const categoryHandler = (bot, supabase, userSettingsService) => async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
@@ -20,7 +15,6 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
     // Check if the text starts with "📚" to handle category management
     if (text.startsWith('📚')) {
       const categories = await categoryService.getUserCategories(userId);
-      const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
       if (!categories?.length) {
         await bot.sendMessage(
@@ -31,6 +25,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
         categoryStates.set(chatId, { step: 'creating_category' });
         return;
       }
+      const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
 
       // Create inline keyboard for categories with edit/delete buttons on separate rows
       const inlineKeyboard = categories.flatMap((cat) => [
@@ -154,13 +149,24 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
           await bot.sendMessage(chatId, 'Please enter a valid category name.', cancelKeyboard);
           return;
         }
-
-        const category = await categoryService.createCategory(userId, categoryName);
-        await userSettingsService.setCurrentCategory(userId, category);
-        categoryStates.delete(chatId);
-        const keyboard = await mainKeyboard(userId);
-        await bot.sendMessage(chatId, `✅ Category "${category.name}" created!`, keyboard);
-        stateManager.setState(BotState.IDLE);
+        try {
+          const category = await categoryService.createCategory(userId, categoryName);
+          await userSettingsService.setCurrentCategory(userId, category);
+          categoryStates.delete(chatId);
+          const keyboard = await mainKeyboard(userId);
+          await bot.sendMessage(chatId, `✅ Category "${category.name}" created!`, keyboard);
+          stateManager.setState(BotState.IDLE);
+        } catch (error) {
+          console.error('Error creating category:', error);
+          const keyboard = await mainKeyboard(userId);
+          await bot.sendMessage(
+            chatId,
+            '❌ Failed to create category. Please try again.',
+            keyboard
+          );
+          stateManager.setState(BotState.IDLE);
+          categoryStates.delete(chatId);
+        }
         break;
 
       case 'saving_edited_category':
@@ -228,6 +234,7 @@ export const handleCategoryCallback =
         categoryStates.set(chatId, { step: 'creating_category' });
         await bot.answerCallbackQuery(callbackQuery.id);
       } else if (callbackQuery.data.startsWith('edit_category_')) {
+        stateManager.setState(BotState.EDITING_CATEGORY);
         const categoryId = callbackQuery.data.replace('edit_category_', '');
         await bot.sendMessage(chatId, 'Enter new name for the category:', cancelKeyboard);
         categoryStates.set(chatId, {
@@ -237,6 +244,7 @@ export const handleCategoryCallback =
         await bot.deleteMessage(chatId, callbackQuery.message.message_id);
         await bot.answerCallbackQuery(callbackQuery.id);
       } else if (callbackQuery.data.startsWith('delete_category_')) {
+        stateManager.setState(BotState.DELETING_CATEGORY);
         const categoryId = callbackQuery.data.replace('delete_category_', '');
         const categories = await categoryService.getUserCategories(userId);
 

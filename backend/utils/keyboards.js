@@ -1,5 +1,7 @@
+import { supabase } from '../config/supabase.js';
 import { BUTTONS } from '../constants/buttons.js';
 import { userSettingsService } from '../server.js';
+import { CategoryService } from '../services/categoryService.js';
 
 // Helper function to format category button text
 const formatCategoryButton = (categoryName) => `📚 ${categoryName || 'Select Category'}`;
@@ -11,6 +13,18 @@ const getCategoryButtonText = async (userId) => {
 };
 
 export const getMainKeyboard = async (userId) => {
+  const categoryService = new CategoryService(supabase);
+  const hasCategories = await categoryService.hasCategories(userId);
+
+  if (!hasCategories) {
+    // When there are no categories, show no keyboard at all
+    return {
+      reply_markup: {
+        remove_keyboard: true
+      }
+    };
+  }
+
   const categoryButton = await getCategoryButtonText(userId);
 
   return {
@@ -18,7 +32,7 @@ export const getMainKeyboard = async (userId) => {
       keyboard: [
         [BUTTONS.ADD_WORD, BUTTONS.PRACTICE],
         [BUTTONS.MY_WORDS, BUTTONS.MORE_OPTIONS],
-        [{ text: categoryButton }]
+        [categoryButton]
       ],
       resize_keyboard: true
     }
