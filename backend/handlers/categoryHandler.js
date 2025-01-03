@@ -154,13 +154,24 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
           await bot.sendMessage(chatId, 'Please enter a valid category name.', cancelKeyboard);
           return;
         }
-
-        const category = await categoryService.createCategory(userId, categoryName);
-        await userSettingsService.setCurrentCategory(userId, category);
-        categoryStates.delete(chatId);
-        const keyboard = await mainKeyboard(userId);
-        await bot.sendMessage(chatId, `✅ Category "${category.name}" created!`, keyboard);
-        stateManager.setState(BotState.IDLE);
+        try {
+          const category = await categoryService.createCategory(userId, categoryName);
+          await userSettingsService.setCurrentCategory(userId, category);
+          categoryStates.delete(chatId);
+          const keyboard = await mainKeyboard(userId);
+          await bot.sendMessage(chatId, `✅ Category "${category.name}" created!`, keyboard);
+          stateManager.setState(BotState.IDLE);
+        } catch (error) {
+          console.error('Error creating category:', error);
+          const keyboard = await mainKeyboard(userId);
+          await bot.sendMessage(
+            chatId,
+            '❌ Failed to create category. Please try again.',
+            keyboard
+          );
+          stateManager.setState(BotState.IDLE);
+          categoryStates.delete(chatId);
+        }
         break;
 
       case 'saving_edited_category':

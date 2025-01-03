@@ -14,5 +14,6 @@ export const BUTTONS = {
   CANCEL: '❌ Cancel',
   DEV_INDICATOR: 'This is DEV',
   MORE_EXAMPLES: '🔄 More examples',
-  FOLLOW_UP: '💭 Follow-up'
+  FOLLOW_UP: '💭 Follow-up',
+  CREATE_CATEGORY: '➕ Create Category'
 };

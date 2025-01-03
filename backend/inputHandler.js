@@ -16,16 +16,38 @@ import { mainKeyboard, mainKeyboardSecondary } from './utils/keyboards.js';
 import { BotState, stateManager } from './utils/stateManager.js';
 import { deleteStates } from './handlers/deleteWordHandler.js';
 import { BUTTONS } from './constants/buttons.js';
-import { handleCategoryCallback } from './handlers/categoryHandler.js';
+import { categoryStates, handleCategoryCallback } from './handlers/categoryHandler.js';
 import { translateAIHandler, handleTranslationCallback } from './features/index.js';
+import { CategoryService } from './services/categoryService.js';
 
 export function inputHandler(bot) {
+  const categoryService = new CategoryService(supabase);
+
   bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
     const userId = msg.from.id;
-    const keyboard = await mainKeyboard(userId);
+    const text = msg.text;
+
     try {
-      const chatId = msg.chat.id;
-      const text = msg.text;
+      // Special handling for /start command
+      if (text === '/start') {
+        await startHandler(bot, supabase)(msg);
+        return;
+      }
+
+      // Check if user has any categories before proceeding
+      const hasCategories = await categoryService.hasCategories(userId);
+      if (!hasCategories) {
+        // When no categories exist, set state and treat all input as category name
+        if (!categoryStates.get(chatId)) {
+          categoryStates.set(chatId, { step: 'creating_category' });
+        }
+        await categoryHandler(bot, supabase, userSettingsService)(msg);
+        return;
+      }
+
+      // Rest of the handler logic for users with categories...
+      const keyboard = await mainKeyboard(userId);
 
       // Handle cancel command globally
       if (text === BUTTONS.CANCEL) {
@@ -62,7 +84,7 @@ export function inputHandler(bot) {
         const parsedCommand = commandParser(text);
         switch (parsedCommand.command) {
           case '/start':
-            await startHandler(bot)(msg);
+            await startHandler(bot, supabase)(msg);
             break;
           case '/reset':
             stateManager.setState(BotState.IDLE);
@@ -108,6 +130,10 @@ export function inputHandler(bot) {
         case BUTTONS.BACK_TO_MAIN:
           await bot.sendMessage(chatId, 'Main menu:', keyboard);
           break;
+        case BUTTONS.CATEGORY:
+          stateManager.setState(BotState.CHANGING_CATEGORY);
+          await categoryHandler(bot, supabase, userSettingsService)(msg);
+          break;
         default:
           if (text.startsWith(BUTTONS.CATEGORY)) {
             stateManager.setState(BotState.CHANGING_CATEGORY);
@@ -119,13 +145,10 @@ export function inputHandler(bot) {
           }
       }
     } catch (error) {
-      console.error('Error handling message:', error);
       stateManager.clearState();
-      try {
-        await bot.sendMessage(msg.chat.id, '❌ An error occurred. Please try again.', keyboard);
-      } catch (sendError) {
-        console.error('Error sending error message:', sendError);
-      }
+      console.error('Error in input handler:', error);
+      const keyboard = await mainKeyboard(userId);
+      await bot.sendMessage(chatId, '❌ An error occurred. Please try again.', keyboard);
     }
   });
 

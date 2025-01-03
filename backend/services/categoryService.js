@@ -11,14 +11,22 @@ export class CategoryService {
     return categories;
   }
 
+  async hasCategories(userId) {
+    const { data: categories } = await this.supabase
+      .from('categories')
+      .select('*')
+      .eq('user_id', userId);
+    return categories?.length > 0;
+  }
+
   async createCategory(userId, name) {
     const { data: newCategory, error } = await this.supabase
       .from('categories')
       .insert([
         {
           user_id: userId,
-          name: name.trim(),
-        },
+          name: name.trim()
+        }
       ])
       .select()
       .single();
