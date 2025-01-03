@@ -6,8 +6,8 @@
   "scripts": {
     "dev:frontend": "vite",
     "dev:backend": "node --watch backend/server.js",
-    "start": "node backend/server.js",
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "start": "NODE_OPTIONS='--no-deprecation' node backend/server.js",
+    "dev": "NODE_OPTIONS='--no-deprecation' concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
