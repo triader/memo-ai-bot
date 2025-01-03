@@ -9,7 +9,7 @@ const wordStates = new Map();
 
 export const createCategoryKeyboard = (categories) => {
   const keyboard = categories.map((cat) => [{ text: cat.name }]);
-  keyboard.push([{ text: '❌ Cancel' }]);
+  keyboard.push([{ text: BUTTONS.CANCEL }]);
   return {
     keyboard,
     resize_keyboard: true,

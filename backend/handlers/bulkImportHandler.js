@@ -1,6 +1,7 @@
 import { mainKeyboard, cancelKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
 import { ExcelProcessor } from '../services/excelProcessor.js';
+import { BUTTONS } from '../constants/buttons.js';
 
 const userStates = new Map();
 
@@ -11,7 +12,7 @@ const createCategoryKeyboard = (categories) => {
     }
   ]);
 
-  keyboard.push([{ text: '❌ Cancel' }]);
+  keyboard.push([{ text: BUTTONS.CANCEL }]);
 
   return {
     keyboard,
@@ -56,7 +57,7 @@ export const bulkImportHandler = (bot, supabase) => {
       }
 
       // Handle cancel command in any state
-      if (text === '❌ Cancel') {
+      if (text === BUTTONS.CANCEL) {
         userStates.delete(chatId);
         const keyboard = await mainKeyboard(userId);
         await bot.sendMessage(chatId, 'Operation cancelled.', keyboard);
