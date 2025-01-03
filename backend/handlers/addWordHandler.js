@@ -126,16 +126,14 @@ export const addWordHandler = (bot, supabase, userSettingsService) => {
 
             if (error) throw error;
 
-            await bot.sendMessage(
-              chatId,
-              `✅ Successfully added to category "${state.categoryName}":\n${state.word} - ${translation}`,
-              mainKeyboard
-            );
+            const keyboard = await mainKeyboard(userId);
+            await bot.sendMessage(chatId, `✅ Word added successfully!`, keyboard);
             wordStates.delete(chatId);
             stateManager.clearState();
           } catch (error) {
             console.error('Error adding word:', error);
-            await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', mainKeyboard);
+            const keyboard = await mainKeyboard(userId);
+            await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', keyboard);
             wordStates.delete(chatId);
             stateManager.clearState();
           }
@@ -143,7 +141,8 @@ export const addWordHandler = (bot, supabase, userSettingsService) => {
       }
     } catch (error) {
       console.error('Error in word handler:', error);
-      await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', mainKeyboard);
+      const keyboard = await mainKeyboard(userId);
+      await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', keyboard);
       wordStates.delete(chatId);
       stateManager.clearState();
     }

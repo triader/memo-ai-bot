@@ -58,7 +58,8 @@ export const bulkImportHandler = (bot, supabase) => {
       // Handle cancel command in any state
       if (text === '❌ Cancel') {
         userStates.delete(chatId);
-        await bot.sendMessage(chatId, 'Operation cancelled.', mainKeyboard);
+        const keyboard = await mainKeyboard(userId);
+        await bot.sendMessage(chatId, 'Operation cancelled.', keyboard);
         return;
       }
 
@@ -88,10 +89,11 @@ export const bulkImportHandler = (bot, supabase) => {
             );
           } catch (error) {
             console.error('Error in category selection:', error);
+            const keyboard = await mainKeyboard(userId);
             await bot.sendMessage(
               chatId,
               '❌ Failed to process category. Please try again.',
-              mainKeyboard
+              keyboard
             );
             userStates.delete(chatId);
           }
@@ -124,18 +126,20 @@ export const bulkImportHandler = (bot, supabase) => {
             const { error } = await supabase.from('words').insert(words);
             if (error) throw error;
 
+            const keyboard = await mainKeyboard(userId);
             await bot.sendMessage(
               chatId,
               `✅ Successfully imported ${words.length} words to category "${userState.selectedCategory.name}"!`,
-              mainKeyboard
+              keyboard
             );
           } catch (error) {
             console.error('Import error:', error);
+            const keyboard = await mainKeyboard(userId);
             await bot.sendMessage(
               chatId,
               error.message ||
                 "❌ Failed to process the Excel file. Please make sure it's properly formatted.",
-              mainKeyboard
+              keyboard
             );
           } finally {
             userStates.delete(chatId);
@@ -145,12 +149,14 @@ export const bulkImportHandler = (bot, supabase) => {
         default:
           console.error('Invalid state:', userState.step);
           userStates.delete(chatId);
-          await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', mainKeyboard);
+          const keyboard = await mainKeyboard(userId);
+          await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', keyboard);
       }
     } catch (error) {
       console.error('Error in bulk import handler:', error);
       userStates.delete(chatId);
-      await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', mainKeyboard);
+      const keyboard = await mainKeyboard(userId);
+      await bot.sendMessage(chatId, '❌ Something went wrong. Please try again.', keyboard);
     }
   };
 };

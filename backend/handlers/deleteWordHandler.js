@@ -28,7 +28,8 @@ export function deleteWordHandler(bot, supabase, userSettingsService) {
         stateManager.clearState();
       } catch (error) {
         console.error('Error in word delete:', error);
-        await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, mainKeyboard);
+        const keyboard = await mainKeyboard(userId);
+        await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, keyboard);
         stateManager.clearState();
       }
       return;
@@ -45,12 +46,14 @@ export function deleteWordHandler(bot, supabase, userSettingsService) {
 
         if (error) {
           console.error('Error fetching words:', error);
-          await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, mainKeyboard);
+          const keyboard = await mainKeyboard(userId);
+          await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, keyboard);
           return;
         }
 
         if (!words || words.length === 0) {
-          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_WORDS, mainKeyboard);
+          const keyboard = await mainKeyboard(userId);
+          await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_WORDS, keyboard);
           return;
         }
 
@@ -75,7 +78,8 @@ export function deleteWordHandler(bot, supabase, userSettingsService) {
       }
     } catch (error) {
       console.error('Error in word delete:', error);
-      await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, mainKeyboard);
+      const keyboard = await mainKeyboard(userId);
+      await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, keyboard);
       deleteStates.delete(chatId);
     }
   };
