@@ -29,6 +29,11 @@ export function inputHandler(bot) {
     const text = msg.text;
 
     try {
+      // Skip processing if this is a callback query message
+      if (msg.callback_query) {
+        return;
+      }
+
       // Special handling for /start command
       if (text === '/start') {
         await startHandler(bot, supabase)(msg);
@@ -65,17 +70,15 @@ export function inputHandler(bot) {
         case BotState.PRACTICING:
           await practiceHandler(bot, supabase, userSettingsService)(msg);
           return;
-        case BotState.CHANGING_CATEGORY:
-          await categoryHandler(bot, supabase, userSettingsService)(msg);
-          return;
         case BotState.IMPORTING:
           await bulkImportHandler(bot, supabase)(msg);
           return;
+        case BotState.EDITING_CATEGORY:
+        case BotState.DELETING_CATEGORY: //TODO: refactor to use different handlers
+          await categoryHandler(bot, supabase, userSettingsService)(msg);
+          return;
         case BotState.EDITING_WORD:
           await wordEditHandler(bot, supabase)(msg);
-          return;
-        case BotState.DELETING_WORD:
-          await deleteWordHandler(bot, supabase)(msg);
           return;
       }
 
@@ -121,7 +124,6 @@ export function inputHandler(bot) {
           await wordEditHandler(bot, supabase)(msg);
           break;
         case BUTTONS.DELETE_WORD:
-          stateManager.setState(BotState.DELETING_WORD);
           await deleteWordHandler(bot, supabase, userSettingsService)(msg);
           break;
         case BUTTONS.MORE_OPTIONS:
@@ -130,13 +132,8 @@ export function inputHandler(bot) {
         case BUTTONS.BACK_TO_MAIN:
           await bot.sendMessage(chatId, 'Main menu:', keyboard);
           break;
-        case BUTTONS.CATEGORY:
-          stateManager.setState(BotState.CHANGING_CATEGORY);
-          await categoryHandler(bot, supabase, userSettingsService)(msg);
-          break;
         default:
           if (text.startsWith(BUTTONS.CATEGORY)) {
-            stateManager.setState(BotState.CHANGING_CATEGORY);
             await categoryHandler(bot, supabase, userSettingsService)(msg);
             return;
           }

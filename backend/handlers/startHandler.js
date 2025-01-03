@@ -9,7 +9,7 @@ export const startHandler = (bot, supabase) => async (msg) => {
 
   try {
     const hasCategories = await categoryService.hasCategories(userId);
-
+    const keyboard = await mainKeyboard(userId);
     if (!hasCategories) {
       // New user without categories - go straight to category creation
       await bot.sendMessage(
@@ -17,12 +17,12 @@ export const startHandler = (bot, supabase) => async (msg) => {
         'Welcome to the Language Learning Bot! 🎉\n\n' +
           "To get started, let's create your first category.\n" +
           'Categories help you organize your words (e.g., "Verbs", "Food", "Travel").\n\n' +
-          'Please enter a name for your first category:'
+          'Please enter a name for your first category:',
+        keyboard
       );
       categoryStates.set(chatId, { step: 'creating_category' });
     } else {
       // Existing user with categories
-      const keyboard = await mainKeyboard(userId);
       await bot.sendMessage(chatId, 'Welcome back to the Language Learning Bot! 📚', keyboard);
     }
   } catch (error) {

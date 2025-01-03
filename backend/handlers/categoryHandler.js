@@ -234,6 +234,7 @@ export const handleCategoryCallback =
         categoryStates.set(chatId, { step: 'creating_category' });
         await bot.answerCallbackQuery(callbackQuery.id);
       } else if (callbackQuery.data.startsWith('edit_category_')) {
+        stateManager.setState(BotState.EDITING_CATEGORY);
         const categoryId = callbackQuery.data.replace('edit_category_', '');
         await bot.sendMessage(chatId, 'Enter new name for the category:', cancelKeyboard);
         categoryStates.set(chatId, {
@@ -243,6 +244,7 @@ export const handleCategoryCallback =
         await bot.deleteMessage(chatId, callbackQuery.message.message_id);
         await bot.answerCallbackQuery(callbackQuery.id);
       } else if (callbackQuery.data.startsWith('delete_category_')) {
+        stateManager.setState(BotState.DELETING_CATEGORY);
         const categoryId = callbackQuery.data.replace('delete_category_', '');
         const categories = await categoryService.getUserCategories(userId);
 
