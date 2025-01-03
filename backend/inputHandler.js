@@ -109,9 +109,10 @@ export function inputHandler(bot) {
           await bot.sendMessage(chatId, 'Main menu:', keyboard);
           break;
         default:
-          if (text.startsWith(BUTTONS.MANAGE_CATEGORY)) {
+          if (text.startsWith(BUTTONS.CATEGORY)) {
             stateManager.setState(BotState.CHANGING_CATEGORY);
             await categoryHandler(bot, supabase, userSettingsService)(msg);
+            return;
           }
           if (stateManager.getState() === BotState.IDLE) {
             await translateAIHandler(bot, openai, userSettingsService)(msg);

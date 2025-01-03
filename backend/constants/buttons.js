@@ -2,7 +2,7 @@ export const BUTTONS = {
   ADD_WORD: '➕ Add Word',
   PRACTICE: '🎯 Practice',
   MY_WORDS: '📝 My Words',
-  MANAGE_CATEGORY: '📚',
+  CATEGORY: '📚',
   NEW_CATEGORY: '➕ Add',
   EDIT_CATEGORY: '✏️ Edit',
   DELETE_CATEGORY: '🗑️ Delete',

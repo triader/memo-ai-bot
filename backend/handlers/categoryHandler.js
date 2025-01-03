@@ -32,24 +32,35 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
         return;
       }
 
-      // Create inline keyboard for categories with edit/delete buttons
-      const inlineKeyboard = categories.map((cat) => [
-        {
-          text: `${cat.name}${cat.id === currentCategory?.id ? ' ✅' : ''}`,
-          callback_data: `select_category_${cat.id}`
-        },
-        {
-          text: '✏️',
-          callback_data: `edit_category_${cat.id}`
-        },
-        {
-          text: '🗑️',
-          callback_data: `delete_category_${cat.id}`
-        }
+      // Create inline keyboard for categories with edit/delete buttons on separate rows
+      const inlineKeyboard = categories.flatMap((cat) => [
+        // Category name row
+        [
+          {
+            text: `${cat.name}${cat.id === currentCategory?.id ? ' ✅' : ''}`,
+            callback_data: `select_category_${cat.id}`
+          }
+        ],
+        // Edit/Delete buttons row
+        [
+          {
+            text: '✏️ Edit',
+            callback_data: `edit_category_${cat.id}`
+          },
+          {
+            text: '🗑️ Delete',
+            callback_data: `delete_category_${cat.id}`
+          }
+        ]
       ]);
 
       // Add only the new category button at the bottom
-      inlineKeyboard.push([{ text: '➕ New Category', callback_data: 'new_category' }]);
+      inlineKeyboard.push([
+        {
+          text: '➕ New Category',
+          callback_data: 'new_category'
+        }
+      ]);
 
       await bot.sendMessage(chatId, '📚 Choose a category:', {
         reply_markup: {
