@@ -12,6 +12,14 @@ export const createPracticeTypeKeyboard = () => ({
   one_time_keyboard: true
 });
 
+export const createTranslateKeyboard = () => ({
+  reply_markup: {
+    keyboard: [[{ text: BUTTONS.SKIP }], [{ text: BUTTONS.CANCEL }]],
+    one_time_keyboard: true,
+    resize_keyboard: true
+  }
+});
+
 export const createMultipleChoiceKeyboard = (options) => ({
   reply_markup: {
     keyboard: [

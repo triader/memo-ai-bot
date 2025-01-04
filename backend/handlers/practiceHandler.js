@@ -13,7 +13,8 @@ import {
 } from '../features/practice/constants/index.js';
 import {
   createPracticeTypeKeyboard,
-  createMultipleChoiceKeyboard
+  createMultipleChoiceKeyboard,
+  createTranslateKeyboard
 } from '../features/practice/utils/keyboards.js';
 
 export const practiceStates = new Map();
@@ -31,7 +32,11 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
 
     switch (practiceType) {
       case 'translate':
-        await bot.sendMessage(chatId, MESSAGES.PROMPTS.TRANSLATE_WORD(word.word), removeKeyboard);
+        await bot.sendMessage(
+          chatId,
+          MESSAGES.PROMPTS.TRANSLATE_WORD(word.word),
+          createTranslateKeyboard()
+        );
         break;
 
       case 'multiple_choice':
