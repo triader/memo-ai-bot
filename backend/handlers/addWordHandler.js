@@ -31,7 +31,7 @@ export const addWordHandler = (bot, supabase, userSettingsService) => {
 
       // Handle initial command
       if (text === BUTTONS.ADD_WORD) {
-        const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
+        const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
         if (currentCategory) {
           // If user has a current category, start word addition directly

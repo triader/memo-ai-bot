@@ -156,7 +156,7 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
     try {
       await bot.sendChatAction(chatId, 'typing');
       if (text === BUTTONS.PRACTICE) {
-        const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
+        const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
         await bot.sendMessage(chatId, MESSAGES.PROMPTS.CHOOSE_PRACTICE_TYPE, {
           reply_markup: createPracticeTypeKeyboard()

@@ -10,7 +10,7 @@ export function deleteWordHandler(bot, supabase, userSettingsService) {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const text = msg.text;
-    const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
+    const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
     if (msg.callback_query) {
       const chatId = msg.callback_query.message.chat.id;

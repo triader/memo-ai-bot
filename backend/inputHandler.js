@@ -36,7 +36,7 @@ export function inputHandler(bot) {
 
       // Special handling for /start command
       if (text === '/start') {
-        await startHandler(bot, supabase)(msg);
+        await startHandler(bot, supabase, userSettingsService)(msg);
         return;
       }
 
@@ -87,7 +87,7 @@ export function inputHandler(bot) {
         const parsedCommand = commandParser(text);
         switch (parsedCommand.command) {
           case '/start':
-            await startHandler(bot, supabase)(msg);
+            await startHandler(bot, supabase, userSettingsService)(msg);
             break;
           case '/reset':
             stateManager.setState(BotState.IDLE);

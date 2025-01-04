@@ -8,7 +8,10 @@ const formatCategoryButton = (categoryName) => `📚 ${categoryName || 'Select C
 
 // Helper function to get the current category button text
 const getCategoryButtonText = async (userId) => {
-  const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
+  const currentCategory = await userSettingsService.getCurrentCategory(userId);
+  if (!currentCategory) {
+    return undefined;
+  }
   return formatCategoryButton(currentCategory?.name);
 };
 

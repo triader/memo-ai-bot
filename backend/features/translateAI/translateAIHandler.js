@@ -86,7 +86,7 @@ export function translateAIHandler(bot, openai, userSettingsService) {
 
     // Handle regular translation (only in IDLE state)
     if (stateManager.getState() === BotState.IDLE && text) {
-      const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
+      const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
       try {
         await bot.sendChatAction(chatId, 'typing');
