@@ -1,23 +1,33 @@
-import { updateWordProgress } from './updateWordProgressHandler.js';
-import { mainKeyboard, removeKeyboard } from '../utils/keyboards.js';
-import { MESSAGES } from '../constants/messages.js';
-import { stateManager } from '../utils/stateManager.js';
-import { BUTTONS } from '../constants/buttons.js';
-import { createSummaryMessage } from '../features/practice/index.js';
-import { normalizeAnswer } from '../features/practice/utils/normalizeAnswer.js';
-import { PracticeService } from '../features/practice/services/practiceService.js';
+import { updateWordProgress } from '../../handlers/updateWordProgressHandler.js';
+import { mainKeyboard, removeKeyboard } from '../../utils/keyboards.js';
+import { MESSAGES } from '../../constants/messages.js';
+import { BotState, stateManager } from '../../utils/stateManager.js';
+import { BUTTONS as MAIN_BUTTONS } from '../../constants/buttons.js';
+import { createSummaryMessage } from './index.js';
+import { normalizeAnswer } from './utils/normalizeAnswer.js';
+import { PracticeService } from './services/practiceService.js';
 import {
   WORDS_PER_SESSION,
   PRACTICE_TYPES,
-  PRACTICE_TYPE_LABELS
-} from '../features/practice/constants/index.js';
+  PRACTICE_TYPE_LABELS,
+  BUTTONS
+} from './constants/index.js';
 import {
   createPracticeTypeKeyboard,
   createMultipleChoiceKeyboard,
   createTranslateKeyboard
-} from '../features/practice/utils/keyboards.js';
+} from './utils/keyboards.js';
 
 export const practiceStates = new Map();
+
+async function exitPractice(bot, chatId, keyboard) {
+  stateManager.setState(BotState.IDLE);
+  await bot.sendMessage(
+    chatId,
+    'Practice session ended. You can start a new practice session anytime! 🌟',
+    keyboard
+  );
+}
 
 export const practiceHandler = (bot, supabase, userSettingsService) => {
   const practiceService = new PracticeService(supabase);
@@ -158,9 +168,14 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
     const text = msg.text;
     const keyboard = await mainKeyboard(userId);
 
+    if (text === BUTTONS.EXIT_PRACTICE) {
+      await exitPractice(bot, chatId, keyboard);
+      return;
+    }
+
     try {
       await bot.sendChatAction(chatId, 'typing');
-      if (text === BUTTONS.PRACTICE) {
+      if (text === MAIN_BUTTONS.PRACTICE) {
         const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
         await bot.sendMessage(chatId, MESSAGES.PROMPTS.CHOOSE_PRACTICE_TYPE, {

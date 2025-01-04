@@ -1,3 +1,4 @@
+export { BUTTONS } from './buttons.js';
 export const WORDS_PER_SESSION = 5;
 
 export const PRACTICE_TYPES = {

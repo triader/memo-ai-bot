@@ -1,5 +1,4 @@
-import { BUTTONS } from '../../../constants/buttons.js';
-import { PRACTICE_TYPE_LABELS, PRACTICE_TYPES } from '../constants/index.js';
+import { BUTTONS, PRACTICE_TYPE_LABELS, PRACTICE_TYPES } from '../constants/index.js';
 
 export const createPracticeTypeKeyboard = () => ({
   keyboard: [
@@ -14,7 +13,7 @@ export const createPracticeTypeKeyboard = () => ({
 
 export const createTranslateKeyboard = () => ({
   reply_markup: {
-    keyboard: [[{ text: BUTTONS.SKIP }], [{ text: BUTTONS.CANCEL }]],
+    keyboard: [[{ text: BUTTONS.SKIP }], [{ text: BUTTONS.EXIT_PRACTICE }]],
     one_time_keyboard: true,
     resize_keyboard: true
   }
@@ -25,7 +24,7 @@ export const createMultipleChoiceKeyboard = (options) => ({
     keyboard: [
       ...options.map((option) => [{ text: option }]),
       [{ text: BUTTONS.SKIP }],
-      [{ text: BUTTONS.CANCEL }]
+      [{ text: BUTTONS.EXIT_PRACTICE }]
     ],
     one_time_keyboard: true,
     resize_keyboard: true

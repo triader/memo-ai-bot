@@ -7,7 +7,6 @@ import {
   deleteWordHandler,
   bulkImportHandler,
   addWordHandler,
-  practiceHandler,
   startHandler
 } from './handlers/index.js';
 import { userSettingsService } from './server.js';
@@ -17,7 +16,11 @@ import { BotState, stateManager } from './utils/stateManager.js';
 import { deleteStates } from './handlers/deleteWordHandler.js';
 import { BUTTONS } from './constants/buttons.js';
 import { categoryStates, handleCategoryCallback } from './handlers/categoryHandler.js';
-import { translateAIHandler, handleTranslationCallback } from './features/index.js';
+import {
+  translateAIHandler,
+  handleTranslationCallback,
+  practiceHandler
+} from './features/index.js';
 import { CategoryService } from './services/categoryService.js';
 
 export function inputHandler(bot) {
