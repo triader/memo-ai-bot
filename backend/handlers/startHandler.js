@@ -2,14 +2,26 @@ import { mainKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
 import { categoryStates } from './categoryHandler.js';
 
-export const startHandler = (bot, supabase) => async (msg) => {
+export const startHandler = (bot, supabase, userSettingsService) => async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   const categoryService = new CategoryService(supabase);
-
   try {
+    // Check if user has settings
+    const { data: existingSettings } = await supabase
+      .from('user_settings')
+      .select('user_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!existingSettings) {
+      // Create initial user settings
+      await userSettingsService.createInitialSettings(userId);
+    }
+
     const hasCategories = await categoryService.hasCategories(userId);
     const keyboard = await mainKeyboard(userId);
+
     if (!hasCategories) {
       // New user without categories - go straight to category creation
       await bot.sendMessage(

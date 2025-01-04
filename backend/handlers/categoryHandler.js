@@ -25,7 +25,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
         categoryStates.set(chatId, { step: 'creating_category' });
         return;
       }
-      const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
+      const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
       // Create inline keyboard for categories with edit/delete buttons on separate rows
       const inlineKeyboard = categories.flatMap((cat) => [
@@ -72,7 +72,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
     switch (state.step) {
       case 'selecting_category':
         const categories = await categoryService.getUserCategories(userId);
-        const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
+        const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
         const selectedCategory = categories.find((cat) => cat.name === text);
         console.log('Found category:', selectedCategory);
@@ -116,7 +116,7 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
           await supabase.from('categories').delete().eq('id', catToDelete.id).eq('user_id', userId);
 
           // If this was the current category, set a different one as current
-          const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
+          const currentCategory = await userSettingsService.getCurrentCategory(userId);
           if (currentCategory?.id === catToDelete.id) {
             const categories = await categoryService.getUserCategories(userId);
             const remainingCategories = categories.filter((cat) => cat.id !== catToDelete.id);
@@ -151,10 +151,18 @@ export const categoryHandler = (bot, supabase, userSettingsService) => async (ms
         }
         try {
           const category = await categoryService.createCategory(userId, categoryName);
-          await userSettingsService.setCurrentCategory(userId, category);
+          // if no categories exist, set the new category as current
+          const currentCategory = await userSettingsService.getCurrentCategory(userId);
+          if (!currentCategory) {
+            await userSettingsService.setCurrentCategory(userId, category.id);
+          }
           categoryStates.delete(chatId);
           const keyboard = await mainKeyboard(userId);
-          await bot.sendMessage(chatId, `✅ Category "${category.name}" created!`, keyboard);
+          await bot.sendMessage(
+            chatId,
+            `✅ Category "${category.name}" created and set as current!`,
+            keyboard
+          );
           stateManager.setState(BotState.IDLE);
         } catch (error) {
           console.error('Error creating category:', error);

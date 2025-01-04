@@ -7,7 +7,7 @@ export const myWordsHandler = (bot, supabase, userSettingsService) => {
     const keyboard = await mainKeyboard(userId);
 
     try {
-      const { currentCategory } = await userSettingsService.getCurrentCategory(userId);
+      const currentCategory = await userSettingsService.getCurrentCategory(userId);
 
       // Get words for current category with progress info
       const { data: words, error } = await supabase
