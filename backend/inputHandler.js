@@ -19,9 +19,11 @@ import { categoryStates, handleCategoryCallback } from './handlers/categoryHandl
 import {
   translateAIHandler,
   handleTranslationCallback,
-  practiceHandler
+  practiceHandler,
+  handlePracticeCallback
 } from './features/index.js';
 import { CategoryService } from './services/categoryService.js';
+import { PRACTICE_TYPES } from './features/practice/constants/index.js';
 
 export function inputHandler(bot) {
   const categoryService = new CategoryService(supabase);
@@ -77,7 +79,7 @@ export function inputHandler(bot) {
           await bulkImportHandler(bot, supabase)(msg);
           return;
         case BotState.EDITING_CATEGORY:
-        case BotState.DELETING_CATEGORY: //TODO: refactor to use different handlers
+        case BotState.DELETING_CATEGORY:
           await categoryHandler(bot, supabase, userSettingsService)(msg);
           return;
         case BotState.EDITING_WORD:
@@ -112,7 +114,6 @@ export function inputHandler(bot) {
           await addWordHandler(bot, supabase, userSettingsService)(msg);
           break;
         case BUTTONS.PRACTICE:
-          stateManager.setState(BotState.PRACTICING);
           await practiceHandler(bot, supabase, userSettingsService)(msg);
           break;
         case BUTTONS.IMPORT:
@@ -156,6 +157,11 @@ export function inputHandler(bot) {
     await handleCategoryCallback(bot, supabase, userSettingsService)(query);
 
     try {
+      if (Object.values(PRACTICE_TYPES).includes(query.data)) {
+        await handlePracticeCallback(bot, supabase, userSettingsService, query);
+        return;
+      }
+
       if (
         query.data.startsWith('translate_') ||
         query.data.startsWith('add_trans_') ||

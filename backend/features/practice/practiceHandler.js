@@ -6,12 +6,7 @@ import { BUTTONS as MAIN_BUTTONS } from '../../constants/buttons.js';
 import { createSummaryMessage } from './index.js';
 import { normalizeAnswer } from './utils/normalizeAnswer.js';
 import { PracticeService } from './services/practiceService.js';
-import {
-  WORDS_PER_SESSION,
-  PRACTICE_TYPES,
-  PRACTICE_TYPE_LABELS,
-  BUTTONS
-} from './constants/index.js';
+import { WORDS_PER_SESSION, PRACTICE_TYPES, BUTTONS } from './constants/index.js';
 import {
   createPracticeTypeKeyboard,
   createMultipleChoiceKeyboard,
@@ -19,6 +14,76 @@ import {
 } from './utils/keyboards.js';
 
 export const practiceStates = new Map();
+
+const getRandomPracticeType = () => {
+  const types = [PRACTICE_TYPES.TRANSLATE, PRACTICE_TYPES.MULTIPLE_CHOICE];
+  return types[Math.floor(Math.random() * types.length)];
+};
+
+const sendPracticeQuestion = async (bot, chatId, wordData, practiceType, category) => {
+  const { word, otherTranslations } = wordData;
+
+  switch (practiceType) {
+    case 'translate':
+      await bot.sendMessage(
+        chatId,
+        MESSAGES.PROMPTS.TRANSLATE_WORD(word.word),
+        createTranslateKeyboard()
+      );
+      break;
+
+    case 'multiple_choice':
+      let options = [word.translation];
+      if (otherTranslations.length) {
+        const shuffled = otherTranslations
+          .filter((t) => t !== word.translation)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3);
+        options = [...shuffled, word.translation].sort(() => Math.random() - 0.5);
+      }
+      await bot.sendMessage(
+        chatId,
+        MESSAGES.PROMPTS.CHOOSE_TRANSLATION(word.word),
+        createMultipleChoiceKeyboard(options)
+      );
+      break;
+  }
+};
+
+const handlePracticeTypeSelection = async (
+  bot,
+  chatId,
+  userId,
+  selectedType,
+  currentCategory,
+  practiceService
+) => {
+  const wordData = await practiceService.getNextWord(userId, currentCategory);
+
+  if (!wordData) {
+    await bot.sendMessage(
+      chatId,
+      MESSAGES.ERRORS.NO_PRACTICE_WORDS(currentCategory.name),
+      mainKeyboard
+    );
+    practiceStates.delete(chatId);
+    return;
+  }
+
+  practiceStates.set(chatId, {
+    wordId: wordData.word.id,
+    word: wordData.word.word,
+    correctAnswer: wordData.word.translation,
+    practiceType: selectedType,
+    isWaitingForAnswer: true,
+    sessionProgress: 1,
+    practicedWords: [wordData.word.id],
+    currentCategory,
+    selectedType
+  });
+
+  await sendPracticeQuestion(bot, chatId, wordData, selectedType, currentCategory);
+};
 
 async function exitPractice(bot, chatId, keyboard) {
   stateManager.setState(BotState.IDLE);
@@ -31,41 +96,6 @@ async function exitPractice(bot, chatId, keyboard) {
 
 export const practiceHandler = (bot, supabase, userSettingsService) => {
   const practiceService = new PracticeService(supabase);
-
-  const getRandomPracticeType = () => {
-    const types = [PRACTICE_TYPES.TRANSLATE, PRACTICE_TYPES.MULTIPLE_CHOICE];
-    return types[Math.floor(Math.random() * types.length)];
-  };
-
-  const sendPracticeQuestion = async (bot, chatId, wordData, practiceType, category) => {
-    const { word, otherTranslations } = wordData;
-
-    switch (practiceType) {
-      case 'translate':
-        await bot.sendMessage(
-          chatId,
-          MESSAGES.PROMPTS.TRANSLATE_WORD(word.word),
-          createTranslateKeyboard()
-        );
-        break;
-
-      case 'multiple_choice':
-        let options = [word.translation];
-        if (otherTranslations.length) {
-          const shuffled = otherTranslations
-            .filter((t) => t !== word.translation)
-            .sort(() => Math.random() - 0.5)
-            .slice(0, 3);
-          options = [...shuffled, word.translation].sort(() => Math.random() - 0.5);
-        }
-        await bot.sendMessage(
-          chatId,
-          MESSAGES.PROMPTS.CHOOSE_TRANSLATION(word.word),
-          createMultipleChoiceKeyboard(options)
-        );
-        break;
-    }
-  };
 
   const handleAnswerResult = async (chatId, state, userId, result, keyboard, isSkipped = false) => {
     // Update word progress if not skipped
@@ -183,7 +213,6 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
         });
 
         practiceStates.set(chatId, {
-          step: 'selecting_type',
           currentCategory
         });
         return;
@@ -191,54 +220,6 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
 
       const state = practiceStates.get(chatId);
       if (!state) return;
-
-      if (state.step === 'selecting_type') {
-        let selectedType;
-
-        for (const [type, label] of Object.entries(PRACTICE_TYPE_LABELS)) {
-          if (text === label) {
-            selectedType = type;
-            break;
-          }
-        }
-
-        if (!selectedType) {
-          await bot.sendMessage(chatId, MESSAGES.ERRORS.INVALID_PRACTICE_TYPE, {
-            reply_markup: createPracticeTypeKeyboard()
-          });
-          return;
-        }
-
-        const wordData = await practiceService.getNextWord(userId, state.currentCategory);
-
-        if (!wordData) {
-          await bot.sendMessage(
-            chatId,
-            MESSAGES.ERRORS.NO_PRACTICE_WORDS(state.currentCategory.name),
-            keyboard
-          );
-          practiceStates.delete(chatId);
-          return;
-        }
-
-        const practiceType =
-          selectedType === PRACTICE_TYPES.RANDOM ? getRandomPracticeType() : selectedType;
-
-        practiceStates.set(chatId, {
-          wordId: wordData.word.id,
-          word: wordData.word.word,
-          correctAnswer: wordData.word.translation,
-          practiceType,
-          isWaitingForAnswer: true,
-          sessionProgress: 1,
-          practicedWords: [wordData.word.id],
-          currentCategory: state.currentCategory,
-          selectedType
-        });
-
-        await sendPracticeQuestion(bot, chatId, wordData, practiceType, state.currentCategory);
-        return;
-      }
 
       if (text === BUTTONS.SKIP) {
         await handleAnswerResult(chatId, state, userId, false, keyboard, true);
@@ -258,4 +239,34 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       stateManager.clearState();
     }
   };
+};
+
+export const handlePracticeCallback = async (bot, supabase, userSettingsService, query) => {
+  const chatId = query.message.chat.id;
+  const userId = query.from.id;
+  const data = query.data;
+
+  if (Object.values(PRACTICE_TYPES).includes(data)) {
+    const state = practiceStates.get(chatId);
+    if (!state || !state.currentCategory) return;
+
+    // Answer the callback query to remove the loading state
+    await bot.answerCallbackQuery(query.id);
+
+    // Delete the message with inline keyboard
+    await bot.deleteMessage(chatId, query.message.message_id);
+
+    // Set the state when user selects practice type
+    stateManager.setState(BotState.PRACTICING);
+
+    const practiceService = new PracticeService(supabase);
+    await handlePracticeTypeSelection(
+      bot,
+      chatId,
+      userId,
+      data,
+      state.currentCategory,
+      practiceService
+    );
+  }
 };
