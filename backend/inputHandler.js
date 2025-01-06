@@ -24,9 +24,11 @@ import {
   translateAIHandler,
   handleTranslationCallback,
   practiceHandler,
+  handlePracticeCallback,
   categoryCallback
 } from './features/index.js';
 import { CategoryService } from './services/categoryService.js';
+import { PRACTICE_TYPES } from './features/practice/constants/index.js';
 
 export function inputHandler(bot) {
   const categoryService = new CategoryService(supabase);
@@ -121,7 +123,6 @@ export function inputHandler(bot) {
           await addWordHandler(bot, supabase, userSettingsService)(msg);
           break;
         case BUTTONS.PRACTICE:
-          stateManager.setState(BotState.PRACTICING);
           await practiceHandler(bot, supabase, userSettingsService)(msg);
           break;
         case BUTTONS.IMPORT:
@@ -163,6 +164,10 @@ export function inputHandler(bot) {
 
   bot.on('callback_query', async (query) => {
     try {
+      if (Object.values(PRACTICE_TYPES).includes(query.data)) {
+        await handlePracticeCallback(bot, query);
+        return;
+      }
       const isCategoryAction =
         Object.values(CATEGORY_ACTIONS).some((prefix) => query.data.startsWith(prefix)) ||
         query.data === CATEGORY_ACTIONS.NEW;

@@ -26,13 +26,19 @@ export class PracticeService {
 
     const { data: otherWords, error: otherError } = await this.supabase
       .from('words')
-      .select('translation')
+      .select('word, translation')
       .eq('category_id', currentCategory.id)
       .neq('id', words[0].id)
       .limit(10);
 
+    if (otherError) {
+      console.error('Error fetching other words:', otherError);
+      throw otherError;
+    }
+
     return {
       word: words[0],
+      otherWords: otherWords?.map((w) => w.word) || [],
       otherTranslations: otherWords?.map((w) => w.translation) || []
     };
   }
