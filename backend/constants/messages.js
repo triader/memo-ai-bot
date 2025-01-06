@@ -6,10 +6,6 @@ export const MESSAGES = {
     NO_WORDS: 'You need to add some words first!',
     NO_WORDS_CATEGORY: (categoryName) =>
       `No words found in category "${categoryName}". Add some words first!`,
-    NO_PRACTICE_WORDS: (categoryName) =>
-      `No words to practice in category "${categoryName}"! All words are well learned or you need to add new ones.`,
-    NO_MORE_WORDS: 'No more words available for practice in this category.',
-    INVALID_PRACTICE_TYPE: '❌ Please select a valid practice type or cancel.',
     WORD_NOT_FOUND: '❌ Word not found. Please try again.',
     EDIT_CANCELLED: '❌ Edit cancelled.',
     DELETE_CANCELLED: '❌ Delete cancelled.',
@@ -18,8 +14,6 @@ export const MESSAGES = {
   },
 
   SUCCESS: {
-    CORRECT_ANSWER: '✅ Correct!',
-    WRONG_ANSWER: (correctAnswer) => `❌ Wrong. The correct answer is: ${correctAnswer}`,
     WORD_UPDATED: '✅ Word has been updated successfully!',
     WORD_DELETED: (word) => `✅ Word "${word}" has been deleted.`
   },
@@ -30,29 +24,13 @@ export const MESSAGES = {
   },
 
   PROMPTS: {
-    CHOOSE_PRACTICE_TYPE: 'Choose practice type:',
-    TRANSLATE_WORD: (word) => `${word}`,
-    CHOOSE_TRANSLATION: (word) => `${word}`,
     EDIT_WHICH_WORD: 'Which word would you like to edit?',
     ENTER_NEW_WORD: (oldWord) => `Current word is "${oldWord}". Please enter the new word:`,
     ENTER_NEW_TRANSLATION: (oldTranslation) =>
       `Current translation is "${oldTranslation}". Please enter the new translation:`,
     DELETE_WHICH_WORD: 'Which word would you like to delete?',
     SELECT_WORD_TO_DELETE: 'Select the word you want to delete:'
-  },
-
-  PRACTICE_SUMMARY: {
-    HEADER: '🎉 Practice session complete!\n\n',
-    OVERALL_RESULTS: 'Overall Results:',
-    CORRECT: (count) => `✅ Correct: ${count}`,
-    WRONG: (count) => `❌ Wrong: ${count}`,
-    SKIPPED: (count) => `⏭️ Skipped: ${count}`,
-    SUCCESS_RATE: (emoji, percentage) => `${emoji} Success rate: ${percentage}%`,
-    PRACTICED_WORDS: 'Practiced words:',
-    FOOTER: 'Keep practicing to improve your vocabulary!'
-  },
-  WORD_SKIPPED: (word, translation, isNextWord) =>
-    `The word "${word}" means "${translation}".\n\n${isNextWord ? '⏭️ Moving to next word...' : ''}`
+  }
 };
 
 export const EMOJIS = {

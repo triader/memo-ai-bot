@@ -1,30 +1,34 @@
 import { updateWordProgress } from '../../handlers/updateWordProgressHandler.js';
 import { mainKeyboard, removeKeyboard } from '../../utils/keyboards.js';
-import { MESSAGES } from '../../constants/messages.js';
-import { BotState, stateManager } from '../../utils/stateManager.js';
+import { stateManager } from '../../utils/stateManager.js';
 import { BUTTONS as MAIN_BUTTONS } from '../../constants/buttons.js';
-import { createSummaryMessage } from './index.js';
 import { normalizeAnswer } from './utils/normalizeAnswer.js';
-import { PracticeService } from './services/practiceService.js';
-import { WORDS_PER_SESSION, PRACTICE_TYPES, BUTTONS } from './constants/index.js';
+import { WORDS_PER_SESSION, PRACTICE_TYPES, BUTTONS, MESSAGES } from './constants/index.js';
 import {
   createPracticeTypeKeyboard,
   createMultipleChoiceKeyboard,
   createTranslateKeyboard
 } from './utils/keyboards.js';
+import { createSummaryMessage, exitPractice } from './helpers.js';
+import { practiceService } from '../../server.js';
 
 export const practiceStates = new Map();
 
 const getRandomPracticeType = () => {
-  const types = [PRACTICE_TYPES.TRANSLATE, PRACTICE_TYPES.MULTIPLE_CHOICE];
+  const types = [
+    PRACTICE_TYPES.TRANSLATE,
+    PRACTICE_TYPES.TRANSLATE_REVERSE,
+    PRACTICE_TYPES.MULTIPLE_CHOICE,
+    PRACTICE_TYPES.REVERSE_MULTIPLE_CHOICE
+  ];
   return types[Math.floor(Math.random() * types.length)];
 };
 
-const sendPracticeQuestion = async (bot, chatId, wordData, practiceType, category) => {
-  const { word, otherTranslations } = wordData;
+const sendPracticeQuestion = async (bot, chatId, wordData, practiceType) => {
+  const { word, otherWords, otherTranslations } = wordData;
 
   switch (practiceType) {
-    case 'translate':
+    case PRACTICE_TYPES.TRANSLATE:
       await bot.sendMessage(
         chatId,
         MESSAGES.PROMPTS.TRANSLATE_WORD(word.word),
@@ -32,7 +36,15 @@ const sendPracticeQuestion = async (bot, chatId, wordData, practiceType, categor
       );
       break;
 
-    case 'multiple_choice':
+    case PRACTICE_TYPES.TRANSLATE_REVERSE:
+      await bot.sendMessage(
+        chatId,
+        MESSAGES.PROMPTS.TRANSLATE_REVERSE(word.translation),
+        createTranslateKeyboard()
+      );
+      break;
+
+    case PRACTICE_TYPES.MULTIPLE_CHOICE:
       let options = [word.translation];
       if (otherTranslations.length) {
         const shuffled = otherTranslations
@@ -47,33 +59,55 @@ const sendPracticeQuestion = async (bot, chatId, wordData, practiceType, categor
         createMultipleChoiceKeyboard(options)
       );
       break;
+
+    case PRACTICE_TYPES.REVERSE_MULTIPLE_CHOICE:
+      let wordOptions = [word.word];
+      if (otherWords.length) {
+        const shuffled = otherWords
+          .filter((w) => w !== word.word)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3);
+        wordOptions = [...shuffled, word.word].sort(() => Math.random() - 0.5);
+      }
+      await bot.sendMessage(
+        chatId,
+        MESSAGES.PROMPTS.CHOOSE_WORD(word.translation),
+        createMultipleChoiceKeyboard(wordOptions)
+      );
+      break;
   }
 };
 
-const handlePracticeTypeSelection = async (
+export const handlePracticeTypeSelection = async (
   bot,
   chatId,
   userId,
   selectedType,
-  currentCategory,
-  practiceService
+  currentCategory
 ) => {
   const wordData = await practiceService.getNextWord(userId, currentCategory);
 
   if (!wordData) {
+    const keyboard = await mainKeyboard(userId);
     await bot.sendMessage(
       chatId,
       MESSAGES.ERRORS.NO_PRACTICE_WORDS(currentCategory.name),
-      mainKeyboard
+      keyboard
     );
     practiceStates.delete(chatId);
+    stateManager.clearState();
     return;
   }
+
+  const isReverseType = [
+    PRACTICE_TYPES.REVERSE_MULTIPLE_CHOICE,
+    PRACTICE_TYPES.TRANSLATE_REVERSE
+  ].includes(selectedType);
 
   practiceStates.set(chatId, {
     wordId: wordData.word.id,
     word: wordData.word.word,
-    correctAnswer: wordData.word.translation,
+    correctAnswer: isReverseType ? wordData.word.word : wordData.word.translation,
     practiceType: selectedType,
     isWaitingForAnswer: true,
     sessionProgress: 1,
@@ -81,26 +115,21 @@ const handlePracticeTypeSelection = async (
     currentCategory,
     selectedType
   });
-
-  await sendPracticeQuestion(bot, chatId, wordData, selectedType, currentCategory);
+  await sendPracticeQuestion(bot, chatId, wordData, selectedType);
 };
 
-async function exitPractice(bot, chatId, keyboard) {
-  stateManager.setState(BotState.IDLE);
-  await bot.sendMessage(
-    chatId,
-    'Practice session ended. You can start a new practice session anytime! 🌟',
-    keyboard
-  );
-}
-
 export const practiceHandler = (bot, supabase, userSettingsService) => {
-  const practiceService = new PracticeService(supabase);
-
-  const handleAnswerResult = async (chatId, state, userId, result, keyboard, isSkipped = false) => {
+  const handleAnswerResult = async (
+    chatId,
+    state,
+    userId,
+    isCorrectAnswer,
+    keyboard,
+    isSkipped = false
+  ) => {
     // Update word progress if not skipped
     if (state.wordId && !isSkipped) {
-      await updateWordProgress(supabase, state.wordId, result);
+      await updateWordProgress(supabase, state.wordId, isCorrectAnswer);
     }
 
     // Get next word first to check if session should continue
@@ -112,22 +141,32 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
     const isNextWord = !!nextWordData && state.sessionProgress < WORDS_PER_SESSION;
 
     // Send feedback message
-    await bot.sendMessage(
-      chatId,
-      isSkipped
-        ? MESSAGES.WORD_SKIPPED(state.word, state.correctAnswer, isNextWord)
-        : result
-          ? MESSAGES.SUCCESS.CORRECT_ANSWER
-          : MESSAGES.SUCCESS.WRONG_ANSWER(state.correctAnswer),
-      state.sessionProgress === WORDS_PER_SESSION ? keyboard : removeKeyboard
-    );
+    const isReverseType = [
+      PRACTICE_TYPES.REVERSE_MULTIPLE_CHOICE,
+      PRACTICE_TYPES.TRANSLATE_REVERSE
+    ].includes(state.practiceType);
+    if (isSkipped) {
+      await bot.sendMessage(
+        chatId,
+        MESSAGES.PROMPTS.WORD_SKIPPED(state.correctAnswer, isNextWord),
+        state.sessionProgress === WORDS_PER_SESSION ? keyboard : removeKeyboard
+      );
+    } else {
+      await bot.sendMessage(
+        chatId,
+        isCorrectAnswer
+          ? MESSAGES.PROMPTS.CORRECT_ANSWER
+          : MESSAGES.PROMPTS.WRONG_ANSWER(isReverseType ? state.word : state.correctAnswer),
+        state.sessionProgress === WORDS_PER_SESSION ? keyboard : removeKeyboard
+      );
+    }
 
     // Check if session is complete
     if (state.sessionProgress >= WORDS_PER_SESSION || !nextWordData) {
       await handleSessionComplete(
         chatId,
         state,
-        { ...state.sessionResults, [state.wordId]: isSkipped ? 'skipped' : result },
+        { ...state.sessionResults, [state.wordId]: isSkipped ? 'skipped' : isCorrectAnswer },
         keyboard
       );
       return;
@@ -141,18 +180,18 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       ...state,
       wordId: nextWordData.word.id,
       word: nextWordData.word.word,
-      correctAnswer: nextWordData.word.translation,
+      correctAnswer: isReverseType ? nextWordData.word.word : nextWordData.word.translation,
       practiceType: nextPracticeType,
       sessionProgress: state.sessionProgress + 1,
       practicedWords: [...state.practicedWords, nextWordData.word.id],
       sessionResults: {
         ...(state.sessionResults || {}),
-        [state.wordId]: isSkipped ? 'skipped' : result
+        [state.wordId]: isSkipped ? 'skipped' : isCorrectAnswer
       }
     });
 
     // Send next practice question
-    await sendPracticeQuestion(bot, chatId, nextWordData, nextPracticeType, state.currentCategory);
+    await sendPracticeQuestion(bot, chatId, nextWordData, nextPracticeType);
   };
 
   const handleSessionComplete = async (chatId, state, finalSessionResults, keyboard) => {
@@ -239,34 +278,4 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       stateManager.clearState();
     }
   };
-};
-
-export const handlePracticeCallback = async (bot, supabase, userSettingsService, query) => {
-  const chatId = query.message.chat.id;
-  const userId = query.from.id;
-  const data = query.data;
-
-  if (Object.values(PRACTICE_TYPES).includes(data)) {
-    const state = practiceStates.get(chatId);
-    if (!state || !state.currentCategory) return;
-
-    // Answer the callback query to remove the loading state
-    await bot.answerCallbackQuery(query.id);
-
-    // Delete the message with inline keyboard
-    await bot.deleteMessage(chatId, query.message.message_id);
-
-    // Set the state when user selects practice type
-    stateManager.setState(BotState.PRACTICING);
-
-    const practiceService = new PracticeService(supabase);
-    await handlePracticeTypeSelection(
-      bot,
-      chatId,
-      userId,
-      data,
-      state.currentCategory,
-      practiceService
-    );
-  }
 };
