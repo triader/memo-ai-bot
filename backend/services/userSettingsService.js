@@ -50,12 +50,14 @@ export class UserSettingsService {
 
   async setCurrentCategory(userId, categoryId) {
     try {
-      await this.supabase
+      const { error } = await this.supabase
         .from('user_settings')
         .update({ current_category_id: categoryId })
         .eq('user_id', userId);
+
+      if (error) throw error;
     } catch (error) {
-      console.error('Error updating current category:', error);
+      console.error('Error setting current category:', error);
       throw error;
     }
   }

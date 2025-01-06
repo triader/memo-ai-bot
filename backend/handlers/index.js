@@ -1,6 +1,5 @@
 export { addWordHandler } from './addWordHandler.js';
 export { bulkImportHandler } from './bulkImportHandler.js';
-export { categoryHandler } from './categoryHandler.js';
 export { deleteWordHandler } from './deleteWordHandler.js';
 export { wordEditHandler } from './wordEditHandler.js';
 export { myWordsHandler } from './myWordsHandler.js';

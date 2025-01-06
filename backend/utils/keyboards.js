@@ -12,7 +12,7 @@ const getCategoryButtonText = async (userId) => {
   if (!currentCategory) {
     return undefined;
   }
-  return formatCategoryButton(currentCategory?.name);
+  return `📚 ${currentCategory?.name}`;
 };
 
 export const getMainKeyboard = async (userId) => {

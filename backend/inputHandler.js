@@ -2,7 +2,6 @@ import { openai } from './config/openai.js';
 import { supabase } from './config/supabase.js';
 import {
   myWordsHandler,
-  categoryHandler,
   wordEditHandler,
   deleteWordHandler,
   bulkImportHandler,
@@ -15,11 +14,17 @@ import { mainKeyboard, mainKeyboardSecondary } from './utils/keyboards.js';
 import { BotState, stateManager } from './utils/stateManager.js';
 import { deleteStates } from './handlers/deleteWordHandler.js';
 import { BUTTONS } from './constants/buttons.js';
-import { categoryStates, handleCategoryCallback } from './handlers/categoryHandler.js';
+import {
+  CATEGORY_ACTIONS,
+  categoryHandler,
+  categoryStates,
+  onCategoryCreate
+} from './features/categoryManagement/index.js';
 import {
   translateAIHandler,
   handleTranslationCallback,
-  practiceHandler
+  practiceHandler,
+  categoryCallback
 } from './features/index.js';
 import { CategoryService } from './services/categoryService.js';
 
@@ -50,7 +55,7 @@ export function inputHandler(bot) {
         if (!categoryStates.get(chatId)) {
           categoryStates.set(chatId, { step: 'creating_category' });
         }
-        await categoryHandler(bot, supabase, userSettingsService)(msg);
+        await categoryHandler(bot)(msg);
         return;
       }
 
@@ -76,9 +81,13 @@ export function inputHandler(bot) {
         case BotState.IMPORTING:
           await bulkImportHandler(bot, supabase)(msg);
           return;
+        case BotState.CREATING_CATEGORY:
+          await onCategoryCreate(bot)(msg);
+          return;
+        // are these needed?
         case BotState.EDITING_CATEGORY:
         case BotState.DELETING_CATEGORY: //TODO: refactor to use different handlers
-          await categoryHandler(bot, supabase, userSettingsService)(msg);
+          await categoryHandler(bot)(msg);
           return;
         case BotState.EDITING_WORD:
           await wordEditHandler(bot, supabase)(msg);
@@ -137,7 +146,7 @@ export function inputHandler(bot) {
           break;
         default:
           if (text.startsWith(BUTTONS.CATEGORY)) {
-            await categoryHandler(bot, supabase, userSettingsService)(msg);
+            await categoryHandler(bot)(msg); //TODO: only call a function that handles category button click            return;
             return;
           }
           if (stateManager.getState() === BotState.IDLE) {
@@ -153,9 +162,15 @@ export function inputHandler(bot) {
   });
 
   bot.on('callback_query', async (query) => {
-    await handleCategoryCallback(bot, supabase, userSettingsService)(query);
-
     try {
+      const isCategoryAction =
+        Object.values(CATEGORY_ACTIONS).some((prefix) => query.data.startsWith(prefix)) ||
+        query.data === CATEGORY_ACTIONS.NEW;
+      if (isCategoryAction) {
+        await categoryCallback(bot)(query);
+        return;
+      }
+
       if (
         query.data.startsWith('translate_') ||
         query.data.startsWith('add_trans_') ||
@@ -178,8 +193,14 @@ export function inputHandler(bot) {
         });
         return;
       }
+
+      console.warn('Unhandled callback query:', query.data);
     } catch (error) {
       console.error('Error handling callback query:', error);
+      const chatId = query.message.chat.id;
+      const userId = query.from.id;
+      const keyboard = await mainKeyboard(userId);
+      await bot.sendMessage(chatId, '❌ An error occurred. Please try again.', keyboard);
     }
   });
 }
