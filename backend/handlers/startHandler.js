@@ -1,6 +1,6 @@
 import { mainKeyboard } from '../utils/keyboards.js';
 import { CategoryService } from '../services/categoryService.js';
-import { categoryStates } from './categoryHandler.js';
+import { categoryStates } from '../features/index.js';
 
 export const startHandler = (bot, supabase, userSettingsService) => async (msg) => {
   const chatId = msg.chat.id;
