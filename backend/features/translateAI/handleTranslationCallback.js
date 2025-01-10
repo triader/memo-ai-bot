@@ -71,7 +71,7 @@ export function handleTranslationCallback(bot, supabase, openai) {
           return;
         }
 
-        const { word, translation } = translationData;
+        const { word, translation, contexts } = translationData;
 
         // Show loading state
         await bot.answerCallbackQuery(callbackQuery.id, {
@@ -86,7 +86,7 @@ export function handleTranslationCallback(bot, supabase, openai) {
               content:
                 'You are a helpful language learning assistant. Provide 5 example sentences using the given word.\n' +
                 'Format each example as follows:\n' +
-                '1. [Example sentence in target language] ([translation in original language])\n' +
+                `1. [Example sentence in ${contexts.learning_context}]\n([translation in ${contexts.original_context}])\n` +
                 '[If the sentence contains kanji or Chinese characters, add their reading on the next line in parentheses. Do not add readings for hiragana or katakana.]\n' +
                 '\n' +
                 'Number each example from 1 to 5.'
