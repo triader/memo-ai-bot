@@ -32,24 +32,22 @@ export const getMainKeyboard = async (userId) => {
 
   return {
     reply_markup: {
-      keyboard: [
-        [BUTTONS.ADD_WORD, BUTTONS.PRACTICE],
-        [BUTTONS.MY_WORDS, BUTTONS.MORE_OPTIONS],
-        [categoryButton]
-      ],
+      keyboard: [...mainOptions, [categoryButton]],
       resize_keyboard: true
     }
   };
 };
 
+const mainOptions = [
+  [BUTTONS.MY_WORDS, BUTTONS.PRACTICE],
+  [BUTTONS.ADD_WORD, BUTTONS.MORE_OPTIONS]
+  // [BUTTONS.IMPORT]
+];
+
 export const mainKeyboardNewCategory = (categoryName) => {
   return {
     reply_markup: {
-      keyboard: [
-        [BUTTONS.ADD_WORD, BUTTONS.PRACTICE],
-        [BUTTONS.MY_WORDS, BUTTONS.MORE_OPTIONS],
-        [formatCategoryButton(categoryName)]
-      ],
+      keyboard: [...mainOptions, [formatCategoryButton(categoryName)]],
       resize_keyboard: true
     }
   };
@@ -62,7 +60,7 @@ export const mainKeyboardSecondary = {
   reply_markup: {
     keyboard: [
       [{ text: BUTTONS.EDIT_WORD }, { text: BUTTONS.DELETE_WORD }],
-      [{ text: BUTTONS.IMPORT }],
+      [{ text: BUTTONS.IMPORT }, { text: BUTTONS.CHANGE_CONTEXT }],
       [{ text: BUTTONS.BACK_TO_MAIN }]
     ],
     resize_keyboard: true
