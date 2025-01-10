@@ -37,6 +37,9 @@ export class CategoryService {
 
   async deleteCategory(userId, categoryId) {
     try {
+      // Delete user_category_languages entries first
+      await this.supabase.from('user_category_languages').delete().eq('category_id', categoryId);
+
       // Delete all words in the category
       await this.supabase
         .from('words')

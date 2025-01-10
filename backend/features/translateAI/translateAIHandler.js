@@ -1,7 +1,7 @@
 import { BotState, stateManager } from '../../utils/stateManager.js';
 import { BUTTONS } from '../../constants/buttons.js';
 import { MESSAGES } from '../../constants/messages.js';
-import { mainKeyboard } from '../../utils/keyboards.js';
+import { cancelKeyboard, mainKeyboard } from '../../utils/keyboards.js';
 
 export const translationStore = new Map();
 export const conversationStore = new Map();
@@ -12,6 +12,28 @@ export function translateAIHandler(bot, openai, userSettingsService) {
     const text = msg.text;
     const userId = msg.from.id;
 
+    // Get user's current category and language contexts
+    const currentCategory = await userSettingsService.getCurrentCategory(userId);
+
+    // Get context data
+    const contextData = await userSettingsService.getCategoryContext(userId, currentCategory.id);
+    const categoryWithContext = {
+      ...currentCategory,
+      original_context: contextData.original_context,
+      learning_context: contextData.learning_context
+    };
+
+    // Check if contexts are set
+    if (!categoryWithContext.original_context || !categoryWithContext.learning_context) {
+      await bot.sendMessage(
+        chatId,
+        'Please set up your language contexts first. What context are you translating from? (e.g., "English" or "Russian")',
+        cancelKeyboard
+      );
+      stateManager.setState(BotState.SETTING_ORIGINAL_CONTEXT);
+      return;
+    }
+
     const followUpData = translationStore.get(`followup_${chatId}`);
     if (followUpData && text) {
       try {
@@ -21,8 +43,7 @@ export function translateAIHandler(bot, openai, userSettingsService) {
         let conversationHistory = conversationStore.get(chatId) || [
           {
             role: 'system',
-            content:
-              'You are a helpful language learning assistant. Answer questions about word usage, meaning, and context.'
+            content: `You are a helpful language learning assistant. You are helping someone who knows ${categoryWithContext.original_context} learn ${categoryWithContext.learning_context}. Answer questions about word usage, meaning, and context.`
           }
         ];
 
@@ -86,25 +107,36 @@ export function translateAIHandler(bot, openai, userSettingsService) {
 
     // Handle regular translation (only in IDLE state)
     if (stateManager.getState() === BotState.IDLE && text) {
-      const currentCategory = await userSettingsService.getCurrentCategory(userId);
-
       try {
         await bot.sendChatAction(chatId, 'typing');
+
+        // Check if contexts are the same
+        const isSameContext =
+          categoryWithContext.original_context === categoryWithContext.learning_context;
+
         const completion = await openai.chat.completions.create({
           messages: [
             {
               role: 'system',
               content:
-                'You are a helpful language learning assistant. Provide translations in the following format ONLY:\n' +
-                'Translation: [translated word or phrase]' +
-                '[For translations containing kanji or Chinese characters, add their reading on the next line in parentheses. Do not add readings for hiragana or katakana.]\n' +
-                'Explanation: [explanation]\n' +
-                'Example: [usage example] (English: [translation])\n' +
-                '[If the example contains kanji or Chinese characters, add their reading on the next line in parentheses. Do not add readings for hiragana or katakana.]'
+                `You are a helpful language learning assistant. You are helping someone who knows ${categoryWithContext.original_context} learn ${categoryWithContext.learning_context}. ` +
+                'Provide ' +
+                (isSameContext ? 'definition' : 'translation') +
+                ' in the following format ONLY:\n\n' +
+                (!isSameContext
+                  ? `${categoryWithContext.original_context}: [${isSameContext ? 'term' : 'word or phrase'} in ${categoryWithContext.original_context} (only the word or phrase, no other text, no quotes; for example: ${categoryWithContext.original_context}: Hello.)]\n\n`
+                  : `Word: [${text}]\n\n`) +
+                (isSameContext ? 'Definition:' : 'Translation:') +
+                ` [${isSameContext ? 'brief definition' : 'translated word or phrase'}]` +
+                '[For translations containing special characters like kanji, add their reading on the next line in parentheses.]\n\n' +
+                'Explanation: [detailed explanation]\n\n' +
+                `${!isSameContext ? 'Example: [usage example] (${categoryWithContext.original_context}: [translation])' : ''}`
             },
             {
               role: 'user',
-              content: `Translate "${text}" to ${currentCategory.name} and provide a brief explanation and usage example. For Japanese words with kanji or Chinese characters, include their reading in parentheses (but don't add readings for hiragana/katakana). Include English translations for examples.`
+              content: isSameContext
+                ? `Define "${text}" in ${categoryWithContext.learning_context} and provide a brief explanation and usage example.`
+                : `Translate or give definition of "${text}" from ${categoryWithContext.original_context} to ${categoryWithContext.learning_context} and provide a brief explanation and usage example.`
             }
           ],
           model: 'gpt-4o'
@@ -112,9 +144,19 @@ export function translateAIHandler(bot, openai, userSettingsService) {
 
         const response = completion.choices[0].message.content;
 
-        // Parse the translation from the response
-        const translationMatch = response.match(/Translation:\s*([^\n]+)/);
-        const translation = translationMatch ? translationMatch[1].trim() : null;
+        // Parse the translation/definition from the response
+        const translationMatch = response.match(/(Translation|Definition):\s*([^\n]+)/);
+        const translation = translationMatch
+          ? isSameContext
+            ? translationMatch[0]
+            : translationMatch[2].trim()
+          : null;
+
+        // Parse the original word from the response
+        const originalWordMatch = response.match(
+          new RegExp(`${categoryWithContext.original_context}:\\s*([^\\n]+)`)
+        );
+        const originalWord = originalWordMatch ? originalWordMatch[1].trim() : text;
 
         // Send the full response first
         await bot.sendMessage(chatId, response);
@@ -124,7 +166,7 @@ export function translateAIHandler(bot, openai, userSettingsService) {
           // Store translation data with a unique key
           const translationKey = `${userId}_${Date.now()}`;
           translationStore.set(translationKey, {
-            word: text,
+            word: originalWord,
             translation,
             categoryId: currentCategory.id
           });
@@ -145,7 +187,7 @@ export function translateAIHandler(bot, openai, userSettingsService) {
                   },
                   {
                     text: BUTTONS.FOLLOW_UP,
-                    callback_data: `translate_followup_${translation}`
+                    callback_data: `translate_followup_${translationKey}`
                   }
                 ]
               ],

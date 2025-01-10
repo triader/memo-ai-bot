@@ -25,7 +25,10 @@ import {
   handleTranslationCallback,
   practiceHandler,
   handlePracticeCallback,
-  categoryCallback
+  categoryCallback,
+  setUpLearningContext,
+  setUpOriginalContext,
+  initiateContextChange
 } from './features/index.js';
 import { CategoryService } from './services/categoryService.js';
 import { PRACTICE_TYPES } from './features/practice/constants/index.js';
@@ -94,6 +97,12 @@ export function inputHandler(bot) {
         case BotState.EDITING_WORD:
           await wordEditHandler(bot, supabase)(msg);
           return;
+        case BotState.SETTING_ORIGINAL_CONTEXT:
+          await setUpOriginalContext(bot, msg);
+          return;
+        case BotState.SETTING_LEARNING_CONTEXT:
+          await setUpLearningContext(bot, msg);
+          return;
       }
 
       // Handle commands when in IDLE state
@@ -144,6 +153,9 @@ export function inputHandler(bot) {
           break;
         case BUTTONS.BACK_TO_MAIN:
           await bot.sendMessage(chatId, 'Main menu:', keyboard);
+          break;
+        case BUTTONS.CHANGE_CONTEXT:
+          await initiateContextChange(bot, chatId, userId);
           break;
         default:
           if (text.startsWith(BUTTONS.CATEGORY)) {
