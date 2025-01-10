@@ -9,9 +9,13 @@ import {
   startHandler
 } from './handlers/index.js';
 import { userSettingsService } from './server.js';
-import { commandParser } from './utils/commandParser.js';
-import { mainKeyboard, mainKeyboardSecondary } from './utils/keyboards.js';
-import { BotState, stateManager } from './utils/stateManager.js';
+import {
+  commandParser,
+  BotState,
+  stateManager,
+  mainKeyboard,
+  mainKeyboardSecondary
+} from './utils/index.js';
 import { deleteStates } from './handlers/deleteWordHandler.js';
 import { BUTTONS } from './constants/buttons.js';
 import {
