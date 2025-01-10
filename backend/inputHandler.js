@@ -1,4 +1,3 @@
-import { openai } from './config/openai.js';
 import { supabase } from './config/supabase.js';
 import {
   myWordsHandler,
@@ -167,7 +166,7 @@ export function inputHandler(bot) {
             return;
           }
           if (stateManager.getState() === BotState.IDLE) {
-            await translateAIHandler(bot, openai, userSettingsService)(msg);
+            await translateAIHandler(bot)(msg);
           }
       }
     } catch (error) {
@@ -191,13 +190,12 @@ export function inputHandler(bot) {
         await categoryCallback(bot)(query);
         return;
       }
-
       if (
         query.data.startsWith('translate_') ||
         query.data.startsWith('add_trans_') ||
         query.data.startsWith('more_examples_')
       ) {
-        await handleTranslationCallback(bot, supabase, openai)(query);
+        await handleTranslationCallback(bot, query);
         return;
       }
 

@@ -2,11 +2,13 @@ import { BotState, stateManager } from '../../utils/stateManager.js';
 import { BUTTONS } from '../../constants/buttons.js';
 import { MESSAGES } from '../../constants/messages.js';
 import { cancelKeyboard, mainKeyboard } from '../../utils/keyboards.js';
+import { userSettingsService } from '../../server.js';
+import { openai } from '../../config/openai.js';
 
 export const translationStore = new Map();
 export const conversationStore = new Map();
 
-export function translateAIHandler(bot, openai, userSettingsService) {
+export function translateAIHandler(bot) {
   return async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
@@ -42,7 +44,7 @@ export function translateAIHandler(bot, openai, userSettingsService) {
         let conversationHistory = conversationStore.get(chatId) || [
           {
             role: 'system',
-            content: `You are a helpful language learning assistant. You are helping someone who knows ${contexts.original_context} learn ${contexts.learning_context}. Answer questions about word usage, meaning, and context.`
+            content: `You are a helpful language learning assistant. You are helping someone who knows ${contexts.original_context} learn ${contexts.learning_context}. Answer questions about word usage, meaning, and context. If user asks to translate to a different language - do so.`
           }
         ];
 
@@ -102,9 +104,17 @@ export function translateAIHandler(bot, openai, userSettingsService) {
       }
     }
 
-    // Handle regular translation (only in IDLE state)
-    if (stateManager.getState() === BotState.IDLE && text) {
+    // Handle regular translation
+    if (text) {
       try {
+        // Clear previous translation data and conversation history for this user
+        for (const [key, value] of translationStore.entries()) {
+          if (key.startsWith(`${userId}_`)) {
+            translationStore.delete(key);
+          }
+        }
+        conversationStore.delete(chatId);
+
         await bot.sendChatAction(chatId, 'typing');
 
         // Check if contexts are the same
@@ -149,7 +159,6 @@ export function translateAIHandler(bot, openai, userSettingsService) {
             ? translationMatch[0]
             : translationMatch[2].trim()
           : null;
-        console.log('translation', translation);
 
         // Parse the original word from the response
         const originalWordMatch = response.match(
@@ -184,7 +193,7 @@ export function translateAIHandler(bot, openai, userSettingsService) {
                   },
                   {
                     text: BUTTONS.FOLLOW_UP,
-                    callback_data: `translate_followup_${translationKey}`
+                    callback_data: `translate_followup_${translation}`
                   }
                 ]
               ],
@@ -199,8 +208,5 @@ export function translateAIHandler(bot, openai, userSettingsService) {
         console.error(error);
       }
     }
-
-    // Clear conversation when canceling or changing words
-    conversationStore.delete(chatId);
   };
 }
