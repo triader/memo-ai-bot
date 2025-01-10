@@ -1,7 +1,8 @@
 export const MESSAGES = {
   ERRORS: {
-    NO_PRACTICE_WORDS: (categoryName) =>
-      `No words to practice in category "${categoryName}"! All words are well learned or you need to add new ones.`,
+    NO_PRACTICE_WORDS: `All words are well learned.`,
+    NO_WORDS_CATEGORY: (categoryName) =>
+      `You don't have any words in category "${categoryName}" yet.\nAdd some words first to start practicing!`,
     NO_MORE_WORDS: 'No more words available for practice in this category.',
     INVALID_PRACTICE_TYPE: '❌ Please select a valid practice type or cancel.'
   },

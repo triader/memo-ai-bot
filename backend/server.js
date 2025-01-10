@@ -7,6 +7,7 @@ import { UserSettingsService } from './services/userSettingsService.js';
 import { inputHandler } from './inputHandler.js';
 import { CategoryService } from './services/categoryService.js';
 import { PracticeService } from './features/practice/services/practiceService.js';
+import { createWordsService } from './services/wordsService.js';
 
 // Load environment variables
 dotenv.config();
@@ -52,3 +53,4 @@ console.log('Bot is running...');
 export const userSettingsService = new UserSettingsService(supabase);
 export const categoryService = new CategoryService(supabase);
 export const practiceService = new PracticeService(supabase);
+export const wordsService = createWordsService(supabase);

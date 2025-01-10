@@ -10,7 +10,7 @@ import {
   createTranslateKeyboard
 } from './utils/keyboards.js';
 import { createSummaryMessage, exitPractice } from './helpers.js';
-import { practiceService } from '../../server.js';
+import { practiceService, wordsService } from '../../server.js';
 
 export const practiceStates = new Map();
 
@@ -89,11 +89,7 @@ export const handlePracticeTypeSelection = async (
 
   if (!wordData) {
     const keyboard = await mainKeyboard(userId);
-    await bot.sendMessage(
-      chatId,
-      MESSAGES.ERRORS.NO_PRACTICE_WORDS(currentCategory.name),
-      keyboard
-    );
+    await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_PRACTICE_WORDS, keyboard);
     practiceStates.delete(chatId);
     stateManager.clearState();
     return;
@@ -246,6 +242,16 @@ export const practiceHandler = (bot, supabase, userSettingsService) => {
       await bot.sendChatAction(chatId, 'typing');
       if (text === MAIN_BUTTONS.PRACTICE) {
         const currentCategory = await userSettingsService.getCurrentCategory(userId);
+
+        const hasWords = await wordsService.hasWordsInCategory(userId, currentCategory);
+        if (!hasWords) {
+          await bot.sendMessage(
+            chatId,
+            MESSAGES.ERRORS.NO_WORDS_CATEGORY(currentCategory.name),
+            keyboard
+          );
+          return;
+        }
 
         await bot.sendMessage(chatId, MESSAGES.PROMPTS.CHOOSE_PRACTICE_TYPE, {
           reply_markup: createPracticeTypeKeyboard()
