@@ -72,8 +72,6 @@ export function translateAIHandler(bot, openai, userSettingsService) {
           }
         }
 
-        console.log('word', text);
-
         const followUpText = completion.choices[0].message.content;
 
         await bot.sendMessage(chatId, followUpText, {
