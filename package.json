@@ -6,7 +6,7 @@
   "scripts": {
     "dev:frontend": "vite",
     "dev:backend": "tsx watch backend/server.ts",
-    "start": "NODE_OPTIONS='--no-deprecation' node backend/server.ts",
+    "start": "NODE_OPTIONS='--no-deprecation' tsx backend/server.ts",
     "dev": "NODE_OPTIONS='--no-deprecation' concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build": "tsc && vite build",
     "build:backend": "tsc",
