@@ -2,12 +2,12 @@
   "name": "language-learning-bot",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
   "scripts": {
     "dev:frontend": "vite",
     "dev:backend": "tsx watch backend/server.ts",
     "start": "NODE_OPTIONS='--no-deprecation' node dist/backend/server.js",
     "dev": "NODE_OPTIONS='--no-deprecation' concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "test": "PORT=4000 NODE_OPTIONS='--no-deprecation' node dist/backend/server.js",
     "build": "tsc",
     "build:backend": "tsc",
     "build:frontend": "vite build",
