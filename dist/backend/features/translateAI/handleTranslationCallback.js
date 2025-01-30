@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleTranslationCallback = handleTranslationCallback;
 const config_1 = require("../../config");
 const constants_1 = require("../../constants");
+const server_1 = require("../../server");
 const translateAIHandler_1 = require("./translateAIHandler");
 async function handleTranslationCallback(bot, callbackQuery) {
     if (callbackQuery.data.startsWith('add_trans_')) {
@@ -34,17 +35,10 @@ async function addWordCallback(bot, callbackQuery) {
             return;
         }
         const { word, translation, categoryId } = translationData;
-        const { error } = await config_1.supabase.from('words').insert([
-            {
-                user_id: userId,
-                category_id: categoryId,
-                word: translation,
-                translation: word,
-                created_at: new Date()
-            }
-        ]);
-        if (error)
-            throw error;
+        const result = await server_1.wordsService.addWord(userId, categoryId, translation, word);
+        if (!result) {
+            throw new Error('Failed to add word');
+        }
         // Clean up stored data
         translateAIHandler_1.translationStore.delete(translationKey);
         // Update the message to show success

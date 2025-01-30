@@ -11,10 +11,12 @@ exports.MESSAGES = {
         WORD_NOT_FOUND: '❌ Word not found. Please try again.',
         EDIT_CANCELLED: '❌ Edit cancelled.',
         DELETE_CANCELLED: '❌ Delete cancelled.',
+        INVALID_WORDS_PER_LEVEL: 'Please enter a valid number greater than 0.',
+        WORDS_PER_LEVEL_FAILED: 'Failed to set words per level. Please try again.'
     },
     SUCCESS: {
         WORD_UPDATED: '✅ Word has been updated successfully!',
-        WORD_DELETED: (word) => `✅ Word "${word}" has been deleted.`
+        WORD_DELETED: (word, translation) => `✅ "${word} - ${translation}" has been deleted.`
     },
     ACTIONS: {
         CANCELLED: 'Operation cancelled.',
@@ -25,7 +27,9 @@ exports.MESSAGES = {
         ENTER_NEW_WORD: (oldWord) => `Current word is "${oldWord}". Please enter the new word:`,
         ENTER_NEW_TRANSLATION: (oldTranslation) => `Current translation is "${oldTranslation}". Please enter the new translation:`,
         DELETE_WHICH_WORD: 'Which word would you like to delete?',
-        SELECT_WORD_TO_DELETE: 'Select the word you want to delete:'
+        SELECT_WORD_TO_DELETE: 'Select the word you want to delete:',
+        ENTER_WORDS_PER_LEVEL: 'Enter how many words you want to have in each level:',
+        WORDS_PER_LEVEL_SET: (count) => `✅ Successfully set ${count} words per level. Your words have been reorganized into levels.`
     }
 };
 exports.EMOJIS = {

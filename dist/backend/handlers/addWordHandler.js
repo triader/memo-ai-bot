@@ -4,7 +4,6 @@ exports.addWordHandler = exports.createCategoryKeyboard = void 0;
 const utils_1 = require("../utils");
 const constants_1 = require("../constants");
 const server_1 = require("../server");
-const config_1 = require("../config");
 // Store word addition states
 const wordStates = new Map();
 const createCategoryKeyboard = (categories) => {
@@ -89,19 +88,14 @@ const addWordHandler = (bot) => {
                         return;
                     }
                     try {
-                        const { error } = await config_1.supabase.from('words').insert([
-                            {
-                                user_id: userId,
-                                category_id: state.categoryId,
-                                word: state.word,
-                                translation,
-                                created_at: new Date()
-                            }
-                        ]);
-                        if (error)
-                            throw error;
-                        const keyboard = await (0, utils_1.mainKeyboard)(userId);
-                        await bot.sendMessage(chatId, `✅ Word added successfully!`, keyboard);
+                        const result = await server_1.wordsService.addWord(userId, state.categoryId, state.word, translation);
+                        if (result) {
+                            const keyboard = await (0, utils_1.mainKeyboard)(userId);
+                            await bot.sendMessage(chatId, `✅ Word added successfully!`, keyboard);
+                        }
+                        else {
+                            throw new Error('Failed to add word');
+                        }
                         wordStates.delete(chatId);
                         utils_1.stateManager.clearState();
                     }

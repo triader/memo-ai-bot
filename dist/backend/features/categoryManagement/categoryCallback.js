@@ -8,6 +8,7 @@ const categoryHandler_1 = require("./categoryHandler");
 const server_1 = require("../../server");
 const helpers_1 = require("./helpers");
 const constants_1 = require("./constants");
+const keyboards_1 = require("../../utils/keyboards");
 const categoryCallback = (bot) => async (callbackQuery) => {
     const chatId = callbackQuery.message?.chat.id;
     if (!chatId || !callbackQuery.data) {
@@ -57,7 +58,7 @@ async function onCategorySelectClick(bot, userId, chatId, categoryId, callbackQu
         return;
     await bot.deleteMessage(chatId, callbackQuery.message?.message_id);
     // Send success message
-    await bot.sendMessage(chatId, `✅ Current category changed to "${category.name}"`, (0, utils_1.mainKeyboardNewCategory)(category.name));
+    await bot.sendMessage(chatId, `✅ Current category changed to "${category.name}"`, await (0, keyboards_1.getMainKeyboard)(userId));
     // Show updated category list
     await (0, helpers_1.showCategoryList)(bot, chatId, userId);
     await bot.answerCallbackQuery(callbackQuery.id);
