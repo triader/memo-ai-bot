@@ -70,6 +70,9 @@ function inputHandler(bot) {
                 case utils_1.BotState.SETTING_LEARNING_CONTEXT:
                     await (0, features_1.setUpLearningContext)(bot, msg);
                     return;
+                case utils_1.BotState.SETTING_WORDS_PER_LEVEL:
+                    await (0, handlers_1.setWordsPerLevelHandler)(bot)(msg);
+                    return;
             }
             // Handle commands when in IDLE state
             if (text?.startsWith('/')) {
@@ -121,6 +124,9 @@ function inputHandler(bot) {
                 case constants_1.BUTTONS.CHANGE_CONTEXT:
                     await (0, features_1.initiateContextChange)(bot, chatId, userId);
                     break;
+                case constants_1.BUTTONS.SET_WORDS_PER_LEVEL:
+                    await (0, handlers_1.setWordsPerLevelHandler)(bot)(msg);
+                    break;
                 default:
                     if (text?.startsWith(constants_1.BUTTONS.CATEGORY)) {
                         await (0, features_1.categoryHandler)(bot)(msg); //TODO: only call a function that handles category button click            return;
@@ -139,6 +145,8 @@ function inputHandler(bot) {
         }
     });
     bot.on('callback_query', async (query) => {
+        if (!query.data)
+            return;
         try {
             if (Object.values(features_1.PRACTICE_TYPES).includes(query.data)) {
                 await (0, features_1.handlePracticeCallback)(bot, query);
@@ -156,11 +164,22 @@ function inputHandler(bot) {
                 await (0, features_1.handleTranslationCallback)(bot, query);
                 return;
             }
-            const state = handlers_1.deleteStates.get(query.message?.chat.id);
-            if (state?.action === 'SELECT_WORD_TO_DELETE') {
+            if (query.data?.startsWith('delete_')) {
                 if (!query.message)
                     return;
                 await (0, handlers_1.deleteWordHandler)(bot)({
+                    // @ts-ignore
+                    callback_query: query,
+                    chat: query.message.chat,
+                    from: query.from
+                });
+                return;
+            }
+            // Handle my words level navigation
+            if (Object.values(utils_1.LEVEL_NAVIGATION).includes(query.data)) {
+                if (!query.message)
+                    return;
+                await (0, handlers_1.myWordsHandler)(bot)({
                     // @ts-ignore
                     callback_query: query,
                     chat: query.message.chat,

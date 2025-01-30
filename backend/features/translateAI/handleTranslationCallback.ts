@@ -1,5 +1,6 @@
-import { openai, supabase } from '../../config';
+import { openai } from '../../config';
 import { BUTTONS } from '../../constants';
+import { wordsService } from '../../server';
 import { translationStore } from './translateAIHandler';
 import TelegramBot from 'node-telegram-bot-api';
 
@@ -39,17 +40,11 @@ async function addWordCallback(bot: TelegramBot, callbackQuery: any) {
 
     const { word, translation, categoryId } = translationData;
 
-    const { error } = await supabase.from('words').insert([
-      {
-        user_id: userId,
-        category_id: categoryId,
-        word: translation,
-        translation: word,
-        created_at: new Date()
-      }
-    ]);
+    const result = await wordsService.addWord(userId, categoryId, translation, word);
 
-    if (error) throw error;
+    if (!result) {
+      throw new Error('Failed to add word');
+    }
 
     // Clean up stored data
     translationStore.delete(translationKey);

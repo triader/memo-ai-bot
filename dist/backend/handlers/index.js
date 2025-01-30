@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.startHandler = exports.updateWordProgress = exports.myWordsHandler = exports.wordEditHandler = exports.deleteStates = exports.deleteWordHandler = exports.bulkImportHandler = exports.addWordHandler = void 0;
+exports.setWordsPerLevelHandler = exports.startHandler = exports.updateWordProgress = exports.myWordsHandler = exports.wordEditHandler = exports.deleteStates = exports.deleteWordHandler = exports.bulkImportHandler = exports.addWordHandler = void 0;
 var addWordHandler_1 = require("./addWordHandler");
 Object.defineProperty(exports, "addWordHandler", { enumerable: true, get: function () { return addWordHandler_1.addWordHandler; } });
 var bulkImportHandler_1 = require("./bulkImportHandler");
@@ -16,4 +16,6 @@ var updateWordProgressHandler_1 = require("./updateWordProgressHandler");
 Object.defineProperty(exports, "updateWordProgress", { enumerable: true, get: function () { return updateWordProgressHandler_1.updateWordProgress; } });
 var startHandler_1 = require("./startHandler");
 Object.defineProperty(exports, "startHandler", { enumerable: true, get: function () { return startHandler_1.startHandler; } });
+var setWordsPerLevelHandler_1 = require("./setWordsPerLevelHandler");
+Object.defineProperty(exports, "setWordsPerLevelHandler", { enumerable: true, get: function () { return setWordsPerLevelHandler_1.setWordsPerLevelHandler; } });
 //# sourceMappingURL=index.js.map

@@ -1,10 +1,7 @@
 import { supabase } from '../config';
 import { BUTTONS } from '../constants';
-import { userSettingsService } from '../server';
+import { userSettingsService, wordsService } from '../server';
 import { CategoryService } from '../services';
-
-// Helper function to format category button text
-const formatCategoryButton = (categoryName: string) => `📚 ${categoryName || 'Select Category'}`;
 
 // Helper function to get the current category button text
 const getCategoryButtonText = async (userId: number) => {
@@ -12,7 +9,8 @@ const getCategoryButtonText = async (userId: number) => {
   if (!currentCategory) {
     return undefined;
   }
-  return `📚 ${currentCategory?.name}`;
+  const totalWordsCount = await wordsService.getTotalWordsCount(userId, currentCategory.id);
+  return `📚 ${currentCategory?.name} (${totalWordsCount})`;
 };
 
 export const getMainKeyboard = async (userId: number): Promise<any> => {
@@ -44,21 +42,13 @@ const mainOptions = [
   // [BUTTONS.IMPORT]
 ];
 
-export const mainKeyboardNewCategory = (categoryName: string): any => {
-  return {
-    reply_markup: {
-      keyboard: [...mainOptions, [formatCategoryButton(categoryName)]],
-      resize_keyboard: true
-    }
-  };
-};
-
 export const mainKeyboard = async (userId: number) => await getMainKeyboard(userId);
 
 export const mainKeyboardSecondary = {
   reply_markup: {
     keyboard: [
       [
+        { text: BUTTONS.SET_WORDS_PER_LEVEL },
         // { text: BUTTONS.EDIT_WORD },
         { text: BUTTONS.DELETE_WORD }
       ],
