@@ -3,16 +3,12 @@ import { BUTTONS } from '../constants';
 import { userSettingsService, wordsService } from '../server';
 import { CategoryService } from '../services';
 
-// Helper function to format category button text
-const formatCategoryButton = (categoryName: string) => `📚 ${categoryName || 'Select Category'}`;
-
 // Helper function to get the current category button text
 const getCategoryButtonText = async (userId: number) => {
   const currentCategory = await userSettingsService.getCurrentCategory(userId);
   if (!currentCategory) {
     return undefined;
   }
-
   const totalWordsCount = await wordsService.getTotalWordsCount(userId, currentCategory.id);
   return `📚 ${currentCategory?.name} (${totalWordsCount})`;
 };
@@ -45,15 +41,6 @@ const mainOptions = [
   [BUTTONS.ADD_WORD, BUTTONS.MORE_OPTIONS]
   // [BUTTONS.IMPORT]
 ];
-
-export const mainKeyboardNewCategory = (categoryName: string): any => {
-  return {
-    reply_markup: {
-      keyboard: [...mainOptions, [formatCategoryButton(categoryName)]],
-      resize_keyboard: true
-    }
-  };
-};
 
 export const mainKeyboard = async (userId: number) => await getMainKeyboard(userId);
 

@@ -1,15 +1,10 @@
-import {
-  cancelKeyboard,
-  mainKeyboardNewCategory,
-  BotState,
-  stateManager,
-  mainKeyboard
-} from '../../utils';
+import { cancelKeyboard, BotState, stateManager, mainKeyboard } from '../../utils';
 import { categoryStates } from './categoryHandler';
 import { categoryService, userSettingsService } from '../../server';
 import { getCallbackAction, getCallbackCategoryId, showCategoryList } from './helpers';
 import { CATEGORY_ACTIONS, MESSAGES } from './constants';
 import TelegramBot, { CallbackQuery } from 'node-telegram-bot-api';
+import { getMainKeyboard } from '../../utils/keyboards';
 
 export const categoryCallback = (bot: TelegramBot) => async (callbackQuery: CallbackQuery) => {
   const chatId = callbackQuery.message?.chat.id;
@@ -77,7 +72,7 @@ export async function onCategorySelectClick(
   await bot.sendMessage(
     chatId,
     `✅ Current category changed to "${category.name}"`,
-    mainKeyboardNewCategory(category.name)
+    await getMainKeyboard(userId)
   );
 
   // Show updated category list

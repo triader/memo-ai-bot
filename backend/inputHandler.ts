@@ -4,7 +4,6 @@ import {
   bulkImportHandler,
   addWordHandler,
   startHandler,
-  deleteStates,
   setWordsPerLevelHandler
 } from './handlers';
 import { categoryService } from './server';
@@ -13,12 +12,12 @@ import {
   BotState,
   stateManager,
   mainKeyboard,
-  mainKeyboardSecondary
+  mainKeyboardSecondary,
+  LEVEL_NAVIGATION
 } from './utils';
 import { BUTTONS } from './constants';
 import {
   translateAIHandler,
-  handleTranslationCallback,
   practiceHandler,
   handlePracticeCallback,
   categoryCallback,
@@ -29,7 +28,8 @@ import {
   categoryHandler,
   categoryStates,
   onCategoryCreate,
-  PRACTICE_TYPES
+  PRACTICE_TYPES,
+  handleTranslationCallback
 } from './features';
 import TelegramBot, { CallbackQuery, Message } from 'node-telegram-bot-api';
 
@@ -183,11 +183,13 @@ export function inputHandler(bot: TelegramBot) {
   });
 
   bot.on('callback_query', async (query: CallbackQuery) => {
+    if (!query.data) return;
     try {
       if (Object.values(PRACTICE_TYPES).includes(query.data as any)) {
         await handlePracticeCallback(bot, query);
         return;
       }
+
       const isCategoryAction =
         Object.values(CATEGORY_ACTIONS).some((prefix) => query.data?.startsWith(prefix)) ||
         query.data === CATEGORY_ACTIONS.NEW;
@@ -195,6 +197,7 @@ export function inputHandler(bot: TelegramBot) {
         await categoryCallback(bot)(query);
         return;
       }
+
       if (
         query.data?.startsWith('translate_') ||
         query.data?.startsWith('add_trans_') ||
@@ -204,13 +207,21 @@ export function inputHandler(bot: TelegramBot) {
         return;
       }
 
-      const chatId = query.message?.chat.id;
-      if (!chatId) return;
-      const state = deleteStates.get(chatId);
-
-      if (state?.action === 'SELECT_WORD_TO_DELETE') {
+      if (query.data?.startsWith('delete_')) {
         if (!query.message) return;
         await deleteWordHandler(bot)({
+          // @ts-ignore
+          callback_query: query,
+          chat: query.message.chat,
+          from: query.from
+        });
+        return;
+      }
+
+      // Handle my words level navigation
+      if (Object.values(LEVEL_NAVIGATION).includes(query.data as any)) {
+        if (!query.message) return;
+        await myWordsHandler(bot)({
           // @ts-ignore
           callback_query: query,
           chat: query.message.chat,

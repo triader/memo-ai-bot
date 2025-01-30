@@ -3,6 +3,11 @@ import { BUTTONS, MESSAGES } from '../constants';
 import { mainKeyboard, stateManager } from '../utils';
 import { userSettingsService, wordsService } from '../server';
 import { Category } from '../services/category';
+import {
+  LEVEL_NAVIGATION,
+  addLevelNavigationRow,
+  handleLevelNavigation
+} from '../utils/levelNavigation';
 
 interface DeleteState {
   action: string;
@@ -12,13 +17,6 @@ interface DeleteState {
 
 export const deleteStates = new Map<number, DeleteState>();
 
-const LEVEL_NAVIGATION = {
-  FIRST: 'level_first',
-  PREV: 'level_prev',
-  NEXT: 'level_next',
-  LAST: 'level_last'
-};
-
 const showWordsForLevel = async (
   bot: TelegramBot,
   chatId: number,
@@ -27,16 +25,16 @@ const showWordsForLevel = async (
   level: number,
   messageId?: number
 ) => {
-  const words = await wordsService.getWordsByLevel(userId, categoryId, level);
-  const { max } = await wordsService.getCurrentAndMaxLevel(userId, categoryId);
+  const { max, hasLevels } = await wordsService.getCurrentAndMaxLevel(userId, categoryId);
+  const words = await wordsService.getWordsByLevel(userId, categoryId, hasLevels ? level : null);
 
   const keyboard = {
     inline_keyboard: words.reduce(
       (acc, { word, id }, index) => {
         if (index % 2 === 0) {
-          acc.push([{ text: word, callback_data: id }]);
+          acc.push([{ text: word, callback_data: `delete_${id}` }]);
         } else {
-          acc[acc.length - 1].push({ text: word, callback_data: id });
+          acc[acc.length - 1].push({ text: word, callback_data: `delete_${id}` });
         }
         return acc;
       },
@@ -44,19 +42,13 @@ const showWordsForLevel = async (
     )
   };
 
-  // Add navigation buttons (only if there are multiple levels)
-  if (max > 1) {
-    keyboard.inline_keyboard.push(
-      [
-        ...(level > 1 ? [{ text: '⏮ First', callback_data: LEVEL_NAVIGATION.FIRST }] : []),
-        ...(level > 1 ? [{ text: '◀️ Previous', callback_data: LEVEL_NAVIGATION.PREV }] : []),
-        ...(level < max ? [{ text: 'Next ▶️', callback_data: LEVEL_NAVIGATION.NEXT }] : []),
-        ...(level < max ? [{ text: 'Last ⏭', callback_data: LEVEL_NAVIGATION.LAST }] : [])
-      ].filter(Boolean)
-    ); // Remove empty slots
+  if (hasLevels) {
+    addLevelNavigationRow(keyboard, level, max, 'delete_');
   }
 
-  const message = `🗑 Words in Level ${level}/${max}\nSelect a word to delete:`;
+  const message = hasLevels
+    ? `🗑 Words in Level ${level}/${max}\nSelect a word to delete:`
+    : '🗑 Select a word to delete:';
 
   if (messageId) {
     await bot.editMessageText(message, {
@@ -93,28 +85,16 @@ export function deleteWordHandler(bot: TelegramBot) {
       //@ts-ignore
       const messageId = msg.callback_query.message.message_id;
 
+      // Remove delete_ prefix for processing
+      const action = callbackData.replace('delete_', '');
+
       // Handle level navigation
-      if (Object.values(LEVEL_NAVIGATION).includes(callbackData)) {
+      if (Object.values(LEVEL_NAVIGATION).includes(action)) {
         const state = deleteStates.get(chatId);
         if (!state) return;
 
         const { max } = await wordsService.getCurrentAndMaxLevel(userId, state.category.id);
-        let newLevel = state.currentLevel;
-
-        switch (callbackData) {
-          case LEVEL_NAVIGATION.FIRST:
-            newLevel = 1;
-            break;
-          case LEVEL_NAVIGATION.PREV:
-            newLevel = Math.max(1, state.currentLevel - 1);
-            break;
-          case LEVEL_NAVIGATION.NEXT:
-            newLevel = Math.min(max, state.currentLevel + 1);
-            break;
-          case LEVEL_NAVIGATION.LAST:
-            newLevel = max;
-            break;
-        }
+        const newLevel = handleLevelNavigation(action, state.currentLevel, max);
 
         state.currentLevel = newLevel;
         deleteStates.set(chatId, state);
@@ -123,7 +103,7 @@ export function deleteWordHandler(bot: TelegramBot) {
       }
 
       // Handle word deletion
-      const result = await wordsService.deleteWord(userId, callbackData, currentCategory.id);
+      const result = await wordsService.deleteWord(userId, action, currentCategory.id);
       if (result) {
         // Send success message
         await bot.sendMessage(

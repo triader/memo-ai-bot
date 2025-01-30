@@ -9,6 +9,8 @@ export interface Word {
   category_id: string;
   user_id: string;
   created_at: string;
+  mastery_level: number;
+  last_practiced: string;
 }
 
 export class WordsService {
@@ -18,7 +20,7 @@ export class WordsService {
     this.supabase = supabase;
   }
 
-  async hasWordsInCategory(userId: string, category: Category): Promise<boolean> {
+  async hasWordsInCategory(userId: number, category: Category): Promise<boolean> {
     const { data, error } = await this.supabase
       .from('words')
       .select('id')
@@ -88,14 +90,20 @@ export class WordsService {
     return data.length;
   }
 
-  async getWordsByLevel(userId: number, categoryId: string, level: number): Promise<Word[]> {
-    const { data, error } = await this.supabase
+  async getWordsByLevel(userId: number, categoryId: string, level: number | null): Promise<Word[]> {
+    const query = this.supabase
       .from('words')
       .select('*')
       .eq('user_id', userId)
       .eq('category_id', categoryId)
-      .eq('level', level)
       .order('created_at');
+
+    // Only add level filter if level is not null
+    if (level !== null) {
+      query.eq('level', level);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching words by level:', error);
@@ -108,7 +116,7 @@ export class WordsService {
   async getCurrentAndMaxLevel(
     userId: number,
     categoryId: string
-  ): Promise<{ current: number; max: number }> {
+  ): Promise<{ current: number; max: number; hasLevels: boolean }> {
     const { data, error } = await this.supabase
       .from('words')
       .select('level')
@@ -117,11 +125,18 @@ export class WordsService {
       .order('level', { ascending: false })
       .limit(1);
 
-    if (error || !data.length) {
-      return { current: 1, max: 1 };
+    if (error) {
+      return { current: 1, max: 1, hasLevels: false };
     }
 
-    return { current: 1, max: data[0].level };
+    // Check if words have levels assigned
+    const hasLevels = data.length > 0 && data[0].level !== null;
+
+    return {
+      current: 1,
+      max: hasLevels ? data[0].level : 1,
+      hasLevels
+    };
   }
 
   async addWord(
