@@ -1,6 +1,6 @@
 import { supabase } from '../config';
 import { BUTTONS } from '../constants';
-import { userSettingsService } from '../server';
+import { userSettingsService, wordsService } from '../server';
 import { CategoryService } from '../services';
 
 // Helper function to format category button text
@@ -12,7 +12,9 @@ const getCategoryButtonText = async (userId: number) => {
   if (!currentCategory) {
     return undefined;
   }
-  return `📚 ${currentCategory?.name}`;
+
+  const totalWordsCount = await wordsService.getTotalWordsCount(userId, currentCategory.id);
+  return `📚 ${currentCategory?.name} (${totalWordsCount})`;
 };
 
 export const getMainKeyboard = async (userId: number): Promise<any> => {
@@ -59,6 +61,7 @@ export const mainKeyboardSecondary = {
   reply_markup: {
     keyboard: [
       [
+        { text: BUTTONS.SET_WORDS_PER_LEVEL },
         // { text: BUTTONS.EDIT_WORD },
         { text: BUTTONS.DELETE_WORD }
       ],

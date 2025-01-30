@@ -2,8 +2,7 @@ import { mainKeyboard, cancelKeyboard, stateManager } from '../utils';
 import { BUTTONS } from '../constants';
 import TelegramBot, { Message } from 'node-telegram-bot-api';
 import { Category } from '../services';
-import { categoryService, userService, userSettingsService } from '../server';
-import { supabase } from '../config';
+import { categoryService, userService, userSettingsService, wordsService } from '../server';
 
 // Store word addition states
 const wordStates = new Map();
@@ -117,20 +116,20 @@ export const addWordHandler = (bot: TelegramBot) => {
           }
 
           try {
-            const { error } = await supabase.from('words').insert([
-              {
-                user_id: userId,
-                category_id: state.categoryId,
-                word: state.word,
-                translation,
-                created_at: new Date()
-              }
-            ]);
+            const result = await wordsService.addWord(
+              userId,
+              state.categoryId,
+              state.word,
+              translation
+            );
 
-            if (error) throw error;
+            if (result) {
+              const keyboard = await mainKeyboard(userId);
+              await bot.sendMessage(chatId, `✅ Word added successfully!`, keyboard);
+            } else {
+              throw new Error('Failed to add word');
+            }
 
-            const keyboard = await mainKeyboard(userId);
-            await bot.sendMessage(chatId, `✅ Word added successfully!`, keyboard);
             wordStates.delete(chatId);
             stateManager.clearState();
           } catch (error) {

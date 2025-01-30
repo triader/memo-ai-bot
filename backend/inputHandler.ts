@@ -4,7 +4,8 @@ import {
   bulkImportHandler,
   addWordHandler,
   startHandler,
-  deleteStates
+  deleteStates,
+  setWordsPerLevelHandler
 } from './handlers';
 import { categoryService } from './server';
 import {
@@ -103,6 +104,9 @@ export function inputHandler(bot: TelegramBot) {
         case BotState.SETTING_LEARNING_CONTEXT:
           await setUpLearningContext(bot, msg);
           return;
+        case BotState.SETTING_WORDS_PER_LEVEL:
+          await setWordsPerLevelHandler(bot)(msg);
+          return;
       }
 
       // Handle commands when in IDLE state
@@ -158,6 +162,9 @@ export function inputHandler(bot: TelegramBot) {
         case BUTTONS.CHANGE_CONTEXT:
           await initiateContextChange(bot, chatId, userId);
           break;
+        case BUTTONS.SET_WORDS_PER_LEVEL:
+          await setWordsPerLevelHandler(bot)(msg);
+          break;
         default:
           if (text?.startsWith(BUTTONS.CATEGORY)) {
             await categoryHandler(bot)(msg); //TODO: only call a function that handles category button click            return;
@@ -197,7 +204,9 @@ export function inputHandler(bot: TelegramBot) {
         return;
       }
 
-      const state = deleteStates.get(query.message?.chat.id);
+      const chatId = query.message?.chat.id;
+      if (!chatId) return;
+      const state = deleteStates.get(chatId);
 
       if (state?.action === 'SELECT_WORD_TO_DELETE') {
         if (!query.message) return;
