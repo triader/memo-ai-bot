@@ -6,7 +6,7 @@ import {
   startHandler,
   setWordsPerLevelHandler
 } from './handlers';
-import { categoryService } from './server';
+import { categoryService, userSettingsService } from './server';
 import {
   commandParser,
   BotState,
@@ -32,6 +32,7 @@ import {
   handleTranslationCallback
 } from './features';
 import TelegramBot, { CallbackQuery, Message } from 'node-telegram-bot-api';
+import { getLevelSelectionKeyboard, getMainKeyboard } from './utils/keyboards';
 
 export function inputHandler(bot: TelegramBot) {
   bot.on('message', async (msg: Message) => {
@@ -62,6 +63,19 @@ export function inputHandler(bot: TelegramBot) {
           categoryStates.set(chatId, { step: 'creating_category' });
         }
         await categoryHandler(bot)(msg);
+        return;
+      }
+
+      // Handle "Select Level" and "Level {$number} ${progress}%" buttons
+      if (text === BUTTONS.SELECT_LEVEL || text.startsWith('🏆 Level')) {
+        const currentCategory = await userSettingsService.getCurrentCategory(userId);
+        if (currentCategory) {
+          const levelKeyboard = await getLevelSelectionKeyboard(
+            currentCategory.id,
+            currentCategory.current_level
+          );
+          await bot.sendMessage(chatId, 'Your levels:', levelKeyboard);
+        }
         return;
       }
 
@@ -227,6 +241,28 @@ export function inputHandler(bot: TelegramBot) {
           chat: query.message.chat,
           from: query.from
         });
+        return;
+      }
+
+      // Handle level selection from inline keyboard
+      if (query.data.startsWith('level_') && query.message) {
+        const selectedLevel = parseInt(query.data.split('_')[1], 10);
+        const currentCategory = await userSettingsService.getCurrentCategory(query.from.id);
+        if (currentCategory) {
+          await categoryService.updateCategoryLevel(currentCategory.id, selectedLevel);
+
+          // Delete the original message
+          await bot.deleteMessage(query.message.chat.id, query.message.message_id);
+
+          await bot.sendMessage(
+            query.message.chat.id,
+            `✅ Current level set to ${selectedLevel}`,
+            await getMainKeyboard(query.from.id)
+          );
+          // Resend the inline keyboard with the updated state
+          const levelKeyboard = await getLevelSelectionKeyboard(currentCategory.id, selectedLevel);
+          await bot.sendMessage(query.message.chat.id, `Your levels:`, levelKeyboard);
+        }
         return;
       }
 

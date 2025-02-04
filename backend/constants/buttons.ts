@@ -17,5 +17,7 @@ export const BUTTONS = {
   FOLLOW_UP: '💭 Follow-up',
   CREATE_CATEGORY: '➕ Create Category',
   CHANGE_CONTEXT: '🔄 Change Context Settings',
-  SET_WORDS_PER_LEVEL: '📚 Set Words Per Level'
+  SET_WORDS_PER_LEVEL: '📚 Set Words Per Level',
+  SELECT_LEVEL: '🏆 Select Level',
+  LEVEL_PROGRESS: (level: number, wordsToMaster: number) => `🏆 Level ${level}: 🌿 ${wordsToMaster}`
 } as const;

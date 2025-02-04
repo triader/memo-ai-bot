@@ -77,7 +77,13 @@ export class UserSettingsService {
           .single();
 
         if (category) {
-          return { name: category.name, id: category.id, user_id: userId };
+          return {
+            name: category.name,
+            id: category.id,
+            user_id: userId,
+            created_at: category.created_at,
+            current_level: category.current_level
+          };
         }
       }
 

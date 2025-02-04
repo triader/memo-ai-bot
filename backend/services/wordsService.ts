@@ -113,10 +113,10 @@ export class WordsService {
     return data;
   }
 
-  async getCurrentAndMaxLevel(
+  async getMaxLevel(
     userId: number,
     categoryId: string
-  ): Promise<{ current: number; max: number; hasLevels: boolean }> {
+  ): Promise<{ max: number; hasLevels: boolean }> {
     const { data, error } = await this.supabase
       .from('words')
       .select('level')
@@ -126,14 +126,13 @@ export class WordsService {
       .limit(1);
 
     if (error) {
-      return { current: 1, max: 1, hasLevels: false };
+      return { max: 1, hasLevels: false };
     }
 
     // Check if words have levels assigned
     const hasLevels = data.length > 0 && data[0].level !== null;
 
     return {
-      current: 1,
       max: hasLevels ? data[0].level : 1,
       hasLevels
     };
