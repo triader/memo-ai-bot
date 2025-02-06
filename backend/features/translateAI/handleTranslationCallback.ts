@@ -1,6 +1,7 @@
 import { openai } from '../../config';
 import { BUTTONS } from '../../constants';
 import { wordsService } from '../../server';
+import { mainKeyboard } from '../../utils';
 import { translationStore } from './translateAIHandler';
 import TelegramBot from 'node-telegram-bot-api';
 
@@ -50,10 +51,11 @@ async function addWordCallback(bot: TelegramBot, callbackQuery: any) {
     translationStore.delete(translationKey);
 
     // Update the message to show success
-    await bot.editMessageText(`✅ Added "${translation} - ${word}" to your vocabulary!`, {
-      chat_id: chatId,
-      message_id: messageId
-    });
+    await bot.sendMessage(
+      chatId,
+      `✅ Added "${translation} - ${word}" to your vocabulary!`,
+      await mainKeyboard(userId)
+    );
 
     // Answer the callback query
     await bot.answerCallbackQuery(callbackQuery.id, {
