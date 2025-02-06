@@ -132,15 +132,15 @@ export function translateAIHandler(bot: TelegramBot) {
             {
               role: 'system',
               content:
-                `You are a helpful language learning assistant. You are helping someone who knows ${contexts.original_context} learn ${contexts.learning_context}. ` +
+                `You are a helpful language learning assistant. You are helping someone who knows ${contexts.original_context} learn ${contexts.learning_context}. Don't omit any information.` +
                 'Provide ' +
                 (isSameContext ? 'definition' : 'translation') +
                 ' in the following format ONLY:\n\n' +
                 (!isSameContext
-                  ? `${contexts.original_context}: [${isSameContext ? 'term' : 'word or phrase'} in ${contexts.original_context} (only the word or phrase with its article/preposition, no other text, no quotes; for example: ${contexts.original_context}: A cat)]\n\n`
+                  ? `${contexts.original_context}: [${isSameContext ? 'term in lowercase' : 'word or phrase in lowercase'} in ${contexts.original_context} (only the word or phrase with its article/preposition, no other text, no quotes; for example: ${contexts.original_context}: кошка)]\n\n`
                   : `Word: [${text}]\n\n`) +
                 (isSameContext ? 'Definition:' : `${contexts.learning_context}:`) +
-                ` [${isSameContext ? 'brief definition' : 'translated word or phrase'}]` +
+                ` [${isSameContext ? 'brief definition without period at the end' : `translated word or phrase without accents`}]` +
                 '[For translations containing special characters like kanji, add their reading on the next line in parentheses.]\n\n' +
                 'Explanation: [detailed explanation of the word or phrase in ${contexts.learning_context} without using the word or phrase itself.]\n\n' +
                 `${!isSameContext ? 'Example: [usage example] ' : ''}`
@@ -163,7 +163,7 @@ export function translateAIHandler(bot: TelegramBot) {
         );
         const translation = translationMatch
           ? isSameContext
-            ? translationMatch[0]
+            ? translationMatch[0].split('Definition:')[1].trim()
             : translationMatch[2].trim()
           : null;
 
@@ -177,8 +177,8 @@ export function translateAIHandler(bot: TelegramBot) {
         if (translation) {
           const translationKey = `${userId}_${Date.now()}`;
           translationStore.set(translationKey, {
-            word: originalWord,
-            translation,
+            word: isSameContext ? translation.toLowerCase() : originalWord.toLowerCase(),
+            translation: isSameContext ? originalWord.toLowerCase() : translation.toLowerCase(),
             categoryId: currentCategory.id,
             contexts
           });
