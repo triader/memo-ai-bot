@@ -2,14 +2,19 @@ export { BUTTONS } from './buttons';
 export { MESSAGES } from './messages';
 export const WORDS_PER_SESSION = 5;
 
-export const PRACTICE_TYPES = {
-  RANDOM: 'random',
-  TRANSLATE: 'translate',
-  TRANSLATE_REVERSE: 'translate_reverse',
-  MULTIPLE_CHOICE: 'multiple_choice',
-  REVERSE_MULTIPLE_CHOICE: 'reverse_multiple_choice',
-  FILL_BLANK: 'fill_blank'
-} as const;
+export enum PRACTICE_TYPES {
+  RANDOM = 'random',
+  TRANSLATE = 'translate',
+  TRANSLATE_REVERSE = 'translate_reverse',
+  MULTIPLE_CHOICE = 'multiple_choice',
+  REVERSE_MULTIPLE_CHOICE = 'reverse_multiple_choice',
+  FILL_BLANK = 'fill_blank'
+}
+
+export enum PRACTICE_MODES {
+  LEARN = 'learn',
+  REVIEW = 'review'
+}
 
 export const PRACTICE_TYPE_LABELS = {
   [PRACTICE_TYPES.RANDOM]: '🎲 Random Practice',

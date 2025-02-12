@@ -8,6 +8,7 @@ import {
   addLevelNavigationRow,
   handleLevelNavigation
 } from '../utils/levelNavigation';
+import { getProgressEmoji } from '../utils/getProgressEmoji';
 
 interface ViewState {
   currentLevel: number;
@@ -30,7 +31,7 @@ const showWordsForLevel = async (
   const wordsList = words
     .map((w) => {
       const progress = w.mastery_level || 0;
-      const progressEmoji = progress >= 90 ? '🌳' : progress >= 50 ? '🌿' : '🌱';
+      const progressEmoji = getProgressEmoji(progress);
       return `${progressEmoji} ${w.word} - ${w.translation}`;
     })
     .join('\n\n');

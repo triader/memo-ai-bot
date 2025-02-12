@@ -90,6 +90,15 @@ export class CategoryService {
     return categories?.find((cat) => cat.id === categoryId);
   }
 
+  async getCurrentLevel(categoryId: string) {
+    const { data: category } = await this.supabase
+      .from('categories')
+      .select('current_level')
+      .eq('id', categoryId)
+      .single();
+    return category?.current_level || undefined;
+  }
+
   async getLevelProgress(category: Category) {
     if (category.current_level) {
       const wordsToMaster = await this.calculateWordsToMaster(category.id, category.current_level);

@@ -361,4 +361,140 @@ export class WordsService {
       return false;
     }
   }
+
+  async getWordsForReview(
+    userId: number,
+    categoryId: string,
+    level: number,
+    wordsPerSession: number
+  ): Promise<Word[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to the start of the day
+
+    const { data: words, error } = await this.supabase
+      .from('words')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('category_id', categoryId)
+      .eq('level', level)
+      .gt('mastery_level', 0)
+      .lt('last_practiced', today.toISOString())
+      .limit(wordsPerSession);
+
+    if (error) {
+      console.error('Error fetching words for review:', error);
+      return [];
+    }
+
+    return words;
+  }
+
+  async countReviewWords(userId: number, categoryId: string, level: number): Promise<number> {
+    const { data: words, error } = await this.supabase
+      .from('words')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('category_id', categoryId)
+      .eq('level', level)
+      .gt('mastery_level', 0);
+
+    if (error) {
+      console.error('Error counting review words:', error);
+      return 0;
+    }
+
+    return words ? words.length : 0;
+  }
+
+  async getCountNewAndReviewWords(
+    userId: number,
+    categoryId: string,
+    level: number
+  ): Promise<{ newWordsCount: number; reviewWordsCount: number }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to the start of the day
+
+    // First, get all words for the user, category, and level
+    const { data, error } = await this.supabase
+      .from('words')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('category_id', categoryId)
+      .eq('level', level);
+
+    if (error) {
+      console.error('Error fetching words:', error);
+      return { newWordsCount: 0, reviewWordsCount: 0 };
+    }
+
+    if (!data) return { newWordsCount: 0, reviewWordsCount: 0 };
+
+    // Then filter in memory
+    const reviewWords = data.filter(
+      (word) =>
+        word.mastery_level > 0 && word.last_practiced && new Date(word.last_practiced) < today
+    );
+    const newWords = data.filter((word) => word.mastery_level === 0);
+
+    return {
+      newWordsCount: newWords.length,
+      reviewWordsCount: reviewWords.length
+    };
+  }
+
+  async countNewWords(userId: number, categoryId: string, level: number): Promise<number> {
+    const { data: words, error } = await this.supabase
+      .from('words')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('category_id', categoryId)
+      .eq('level', level)
+      .eq('mastery_level', 0);
+    if (error) {
+      console.error('Error counting new words:', error);
+      return 0;
+    }
+
+    return words ? words.length : 0;
+  }
+
+  async getNewWords(
+    userId: number,
+    categoryId: string,
+    level: number,
+    wordsPerSession: number
+  ): Promise<Word[]> {
+    const { data: words, error } = await this.supabase
+      .from('words')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('category_id', categoryId)
+      .eq('level', level)
+      .eq('mastery_level', 0)
+      .limit(wordsPerSession);
+
+    if (error) {
+      console.error('Error fetching new words:', error);
+      return [];
+    }
+
+    return words;
+  }
+
+  async resetLevelProgress(userId: number, categoryId: string, level: number): Promise<void> {
+    const { error } = await this.supabase
+      .from('words')
+      .update({
+        mastery_level: 0,
+        last_practiced: null
+      })
+      .eq('user_id', userId)
+      .eq('category_id', categoryId)
+      .eq('level', level);
+
+    if (error) {
+      console.error('Error resetting level progress:', error);
+      throw new Error('Failed to reset progress');
+    }
+  }
 }

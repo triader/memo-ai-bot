@@ -69,6 +69,7 @@ export const mainKeyboardSecondary = {
         { text: BUTTONS.DELETE_WORD }
       ],
       [{ text: BUTTONS.IMPORT }, { text: BUTTONS.CHANGE_CONTEXT }],
+      [{ text: BUTTONS.RESET_PROGRESS }],
       [{ text: BUTTONS.BACK_TO_MAIN }]
     ],
     resize_keyboard: true
@@ -101,7 +102,7 @@ export const getLevelSelectionKeyboard = async (
   const inlineKeyboard = levels.map((level) => [
     {
       text: level === currentLevel ? `✅ Level ${level}` : `Level ${level}`,
-      callback_data: `level_${level}`
+      callback_data: `select_level_${level}`
     }
   ]);
 

@@ -1,52 +1,23 @@
 import TelegramBot, { CallbackQuery } from 'node-telegram-bot-api';
-import { EMOJIS } from '../../constants/messages';
 import { BotState, stateManager } from '../../utils';
-import { MESSAGES, PRACTICE_TYPES } from './constants';
-import { handlePracticeTypeSelection, practiceStates, PracticeType } from './practiceHandler';
+import { MESSAGES, PRACTICE_MODES } from './constants';
+import { practiceStates, startPracticeSession } from './practiceHandler';
+import { wordsService } from '../../server';
+import { createLevelNavigationKeyboard, createPracticeOptionsKeyboard } from './utils';
+import { getProgressEmoji } from '../../utils/getProgressEmoji';
 
-export const createSummaryMessage = (
-  sessionStats: { correct: number; total: number; skipped: number },
-  practicedWordsDetails: any[],
-  sessionResults: any[]
-) => {
-  const percentage = Math.round((sessionStats.correct / sessionStats.total) * 100);
-  const performanceEmoji =
-    percentage >= 90
-      ? EMOJIS.PERFORMANCE.EXCELLENT
-      : percentage >= 70
-        ? EMOJIS.PERFORMANCE.GOOD
-        : percentage >= 50
-          ? EMOJIS.PERFORMANCE.FAIR
-          : EMOJIS.PERFORMANCE.LEARNING;
-
+export const createSummaryMessage = (practicedWordsDetails: any[], sessionResults: any[]) => {
   const wordsList = practicedWordsDetails
     .map((word) => {
       const result = sessionResults[word.id];
       const resultEmoji = result === true ? '✅' : result === 'skipped' ? '⏭️' : '❌';
       const progress = word.mastery_level || 0;
-      const progressEmoji = progress >= 90 ? '🌟' : progress >= 50 ? '📈' : '🔄';
 
-      return (
-        `${resultEmoji} ${word.word} - ${word.translation}\n` +
-        `   ${progressEmoji} Current progress: ${progress}%`
-      );
+      return `${getProgressEmoji(progress)} ${word.word} - ${word.translation} ${resultEmoji}`;
     })
     .join('\n\n');
 
-  return (
-    MESSAGES.PRACTICE_SUMMARY.HEADER +
-    MESSAGES.PRACTICE_SUMMARY.OVERALL_RESULTS +
-    MESSAGES.PRACTICE_SUMMARY.CORRECT(sessionStats.correct) +
-    MESSAGES.PRACTICE_SUMMARY.WRONG(
-      sessionStats.total - sessionStats.correct - sessionStats.skipped
-    ) +
-    MESSAGES.PRACTICE_SUMMARY.SKIPPED(sessionStats.skipped) +
-    MESSAGES.PRACTICE_SUMMARY.SUCCESS_RATE(performanceEmoji, percentage) +
-    MESSAGES.PRACTICE_SUMMARY.PRACTICED_WORDS +
-    wordsList +
-    '\n\n' +
-    MESSAGES.PRACTICE_SUMMARY.FOOTER
-  );
+  return MESSAGES.PRACTICE_SUMMARY.HEADER + wordsList + '\n\n' + MESSAGES.PRACTICE_SUMMARY.FOOTER;
 };
 
 export async function exitPractice(bot: TelegramBot, chatId: number, keyboard: any) {
@@ -60,37 +31,71 @@ export async function exitPractice(bot: TelegramBot, chatId: number, keyboard: a
 
 export const handlePracticeCallback = async (bot: TelegramBot, query: CallbackQuery) => {
   const chatId = query.message?.chat.id;
-  if (!chatId) {
-    return;
-  }
-
   const userId = query.from.id;
-  const data = query.data;
+  const callbackData = query.data;
 
-  if (!data) {
-    return;
-  }
+  if (!chatId || !userId || !callbackData) return;
 
-  if (Object.values(PRACTICE_TYPES).includes(data as PracticeType)) {
-    const state = practiceStates.get(chatId);
-    if (!state || !state.currentCategory) return;
+  const state = practiceStates.get(chatId);
+  if (!state) return;
 
-    // Answer the callback query to remove the loading state
+  try {
     await bot.answerCallbackQuery(query.id);
 
-    // Delete the message with inline keyboard
-    if (query.message?.message_id) {
-      await bot.deleteMessage(chatId, query.message.message_id);
-    }
+    if (callbackData.startsWith('level_')) {
+      const direction = callbackData.split('_')[1];
+      let newLevel = state.currentLevel!;
 
-    // Set the state when user selects practice type
-    stateManager.setState(BotState.PRACTICING);
-    await handlePracticeTypeSelection(
-      bot,
-      chatId,
-      userId,
-      data as PracticeType,
-      state.currentCategory
-    );
+      if (direction === 'back' && state.currentLevel! > 1) {
+        newLevel = state.currentLevel! - 1;
+      } else if (direction === 'forward') {
+        const { max: maxLevel } = await wordsService.getMaxLevel(userId, state.currentCategory!.id);
+        if (state.currentLevel! < maxLevel) {
+          newLevel = state.currentLevel! + 1;
+        }
+      }
+
+      // Update state with new level
+      state.currentLevel = newLevel;
+      practiceStates.set(chatId, state);
+
+      const { reviewWordsCount, newWordsCount } = await wordsService.getCountNewAndReviewWords(
+        userId,
+        state.currentCategory!.id,
+        newLevel
+      );
+
+      const { max: maxLevel } = await wordsService.getMaxLevel(userId, state.currentCategory!.id);
+
+      await bot.editMessageText(`Practice level ${newLevel}`, {
+        chat_id: chatId,
+        message_id: query.message?.message_id,
+        reply_markup: {
+          inline_keyboard: [
+            ...createLevelNavigationKeyboard(newLevel, maxLevel),
+            ...createPracticeOptionsKeyboard(reviewWordsCount, newWordsCount)
+          ]
+        }
+      });
+    } else if (callbackData === 'review_words') {
+      stateManager.setState(BotState.PRACTICING);
+      practiceStates.set(chatId, {
+        ...state,
+        practiceMode: PRACTICE_MODES.REVIEW
+      });
+      await startPracticeSession(bot, chatId, userId, state.currentCategory!, state.currentLevel!);
+    } else if (callbackData === 'learn_new_words') {
+      stateManager.setState(BotState.PRACTICING);
+      practiceStates.set(chatId, {
+        ...state,
+        practiceMode: PRACTICE_MODES.LEARN
+      });
+      await startPracticeSession(bot, chatId, userId, state.currentCategory!, state.currentLevel!);
+    }
+  } catch (error) {
+    console.error('Error handling practice callback:', error);
+    await bot.answerCallbackQuery(query.id, {
+      text: 'An error occurred while processing your request.'
+    });
   }
 };

@@ -10,6 +10,7 @@ export const BUTTONS = {
   EDIT_WORD: '✏️ Edit word',
   DELETE_WORD: '🗑️ Delete word',
   IMPORT: '📥 Import',
+  RESET_PROGRESS: '🔄 Reset Level Progress',
   BACK_TO_MAIN: '◀️ Back to Main Menu',
   CANCEL: '❌ Cancel',
   DEV_INDICATOR: 'This is DEV',
