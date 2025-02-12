@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Category } from './category';
+import { BUTTONS } from '../constants/buttons';
 
 export class CategoryService {
   private supabase: SupabaseClient;
@@ -89,6 +90,46 @@ export class CategoryService {
     return categories?.find((cat) => cat.id === categoryId);
   }
 
+  async getCurrentLevel(categoryId: string) {
+    const { data: category } = await this.supabase
+      .from('categories')
+      .select('current_level')
+      .eq('id', categoryId)
+      .single();
+    return category?.current_level || undefined;
+  }
+
+  async getLevelProgress(category: Category) {
+    if (category.current_level) {
+      const wordsToMaster = await this.calculateWordsToMaster(category.id, category.current_level);
+      return BUTTONS.LEVEL_PROGRESS(category.current_level, wordsToMaster);
+    } else {
+      return BUTTONS.SELECT_LEVEL;
+    }
+  }
+
+  private async calculateWordsToMaster(categoryId: string, level: number): Promise<number> {
+    // Fetch words associated with the category and level
+    const { data: words, error } = await this.supabase
+      .from('words')
+      .select('id, mastery_level')
+      .eq('category_id', categoryId)
+      .eq('level', level);
+
+    if (error) {
+      console.error('Error fetching words:', error);
+      return 0;
+    }
+
+    if (!words || words.length === 0) {
+      return 0;
+    }
+
+    const wordsToMaster = words.filter((word) => word.mastery_level !== 100).length;
+
+    return wordsToMaster;
+  }
+
   async validateCategoryDeletion(userId: number, categoryId: string) {
     const categories = await this.getUserCategories(userId);
 
@@ -100,5 +141,34 @@ export class CategoryService {
       throw new Error("Can't delete the last category");
     }
     return categories.find((cat) => cat.id === categoryId);
+  }
+
+  async getLevelsForCategory(categoryId: string): Promise<number[]> {
+    const { data: words, error } = await this.supabase
+      .from('words')
+      .select('level')
+      .eq('category_id', categoryId);
+
+    if (error) {
+      console.error('Error fetching levels:', error);
+      return [];
+    }
+
+    // Filter out null levels, extract unique levels, and sort them
+    const levels = [...new Set(words.map((word) => word.level).filter((level) => level !== null))];
+    levels.sort((a, b) => a - b); // Sort levels numerically
+    return levels;
+  }
+
+  async updateCategoryLevel(categoryId: string, level: number) {
+    const { error } = await this.supabase
+      .from('categories')
+      .update({ current_level: level })
+      .eq('id', categoryId);
+
+    if (error) {
+      console.error('Error updating category level:', error);
+      throw error;
+    }
   }
 }

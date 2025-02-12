@@ -49,3 +49,44 @@ export const createMultipleChoiceKeyboard = (options: string[]) => ({
     resize_keyboard: true
   }
 });
+
+export const createLevelNavigationKeyboard = (currentLevel: number, maxLevel: number) => {
+  const buttons = [];
+
+  if (currentLevel > 1) {
+    buttons.push({
+      text: '⬅️ Previous Level',
+      callback_data: 'level_back'
+    });
+  }
+
+  if (currentLevel < maxLevel) {
+    buttons.push({
+      text: 'Next Level ➡️',
+      callback_data: 'level_forward'
+    });
+  }
+
+  return [buttons];
+};
+
+export const createPracticeOptionsKeyboard = (reviewWordsCount: number, newWordsCount: number) => {
+  const buttons = [];
+  if (reviewWordsCount !== 0) {
+    buttons.push([
+      {
+        text: `Review Words (${reviewWordsCount})`,
+        callback_data: 'review_words'
+      }
+    ]);
+  }
+  if (newWordsCount !== 0) {
+    buttons.push([
+      {
+        text: `Learn New (${newWordsCount})`,
+        callback_data: 'learn_new_words'
+      }
+    ]);
+  }
+  return buttons;
+};

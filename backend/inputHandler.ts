@@ -6,7 +6,7 @@ import {
   startHandler,
   setWordsPerLevelHandler
 } from './handlers';
-import { categoryService } from './server';
+import { categoryService, userSettingsService, wordsService } from './server';
 import {
   commandParser,
   BotState,
@@ -28,10 +28,10 @@ import {
   categoryHandler,
   categoryStates,
   onCategoryCreate,
-  PRACTICE_TYPES,
   handleTranslationCallback
 } from './features';
 import TelegramBot, { CallbackQuery, Message } from 'node-telegram-bot-api';
+import { getLevelSelectionKeyboard, getMainKeyboard } from './utils/keyboards';
 
 export function inputHandler(bot: TelegramBot) {
   bot.on('message', async (msg: Message) => {
@@ -62,6 +62,19 @@ export function inputHandler(bot: TelegramBot) {
           categoryStates.set(chatId, { step: 'creating_category' });
         }
         await categoryHandler(bot)(msg);
+        return;
+      }
+
+      // Handle "Select Level" and "Level {$number} ${progress}%" buttons
+      if (text === BUTTONS.SELECT_LEVEL || text.startsWith('🏆 Level')) {
+        const currentCategory = await userSettingsService.getCurrentCategory(userId);
+        if (currentCategory) {
+          const levelKeyboard = await getLevelSelectionKeyboard(
+            currentCategory.id,
+            currentCategory.current_level
+          );
+          await bot.sendMessage(chatId, 'Your levels:', levelKeyboard);
+        }
         return;
       }
 
@@ -165,6 +178,25 @@ export function inputHandler(bot: TelegramBot) {
         case BUTTONS.SET_WORDS_PER_LEVEL:
           await setWordsPerLevelHandler(bot)(msg);
           break;
+        case BUTTONS.RESET_PROGRESS:
+          const currentCategory = await userSettingsService.getCurrentCategory(userId);
+          if (!currentCategory) {
+            await bot.sendMessage(chatId, 'No active category found.', await mainKeyboard(userId));
+            return;
+          }
+
+          // Confirm reset
+          await bot.sendMessage(chatId, 'Are you sure you want to reset progress for this level?', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '✅ Yes', callback_data: 'confirm_reset' },
+                  { text: '❌ No', callback_data: 'cancel_reset' }
+                ]
+              ]
+            }
+          });
+          break;
         default:
           if (text?.startsWith(BUTTONS.CATEGORY)) {
             await categoryHandler(bot)(msg); //TODO: only call a function that handles category button click            return;
@@ -185,7 +217,11 @@ export function inputHandler(bot: TelegramBot) {
   bot.on('callback_query', async (query: CallbackQuery) => {
     if (!query.data) return;
     try {
-      if (Object.values(PRACTICE_TYPES).includes(query.data as any)) {
+      if (
+        query.data === 'review_words' ||
+        query.data === 'learn_new_words' ||
+        query.data.startsWith('level_')
+      ) {
         await handlePracticeCallback(bot, query);
         return;
       }
@@ -226,6 +262,57 @@ export function inputHandler(bot: TelegramBot) {
           callback_query: query,
           chat: query.message.chat,
           from: query.from
+        });
+        return;
+      }
+
+      // Handle level selection from inline keyboard
+      if (query.data.startsWith('select_level_') && query.message) {
+        const selectedLevel = parseInt(query.data.split('_')[2], 10);
+        const currentCategory = await userSettingsService.getCurrentCategory(query.from.id);
+        if (currentCategory) {
+          await categoryService.updateCategoryLevel(currentCategory.id, selectedLevel);
+
+          // Delete the original message
+          await bot.deleteMessage(query.message.chat.id, query.message.message_id);
+
+          await bot.sendMessage(
+            query.message.chat.id,
+            `✅ Current level set to ${selectedLevel}`,
+            await getMainKeyboard(query.from.id)
+          );
+          // Resend the inline keyboard with the updated state
+          const levelKeyboard = await getLevelSelectionKeyboard(currentCategory.id, selectedLevel);
+          await bot.sendMessage(query.message.chat.id, `Your levels:`, levelKeyboard);
+        }
+        return;
+      }
+
+      // Handle reset confirmation
+      if (query.data === 'confirm_reset' && query.message) {
+        const userId = query.from.id;
+        const currentCategory = await userSettingsService.getCurrentCategory(userId);
+
+        if (currentCategory && currentCategory.current_level) {
+          // Reset mastery levels for all words in the current level
+          await wordsService.resetLevelProgress(
+            userId,
+            currentCategory.id,
+            currentCategory.current_level
+          );
+
+          await bot.editMessageText('✅ Progress reset successfully!', {
+            chat_id: query.message.chat.id,
+            message_id: query.message.message_id
+          });
+        }
+        return;
+      }
+
+      if (query.data === 'cancel_reset' && query.message) {
+        await bot.editMessageText('Reset cancelled.', {
+          chat_id: query.message.chat.id,
+          message_id: query.message.message_id
         });
         return;
       }

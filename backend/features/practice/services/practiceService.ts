@@ -1,34 +1,50 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-
+import { PRACTICE_MODES } from '../constants';
 export class PracticeService {
   constructor(private supabase: SupabaseClient) {}
 
-  async getNextWord(userId: number, currentCategory: any, previousWords = []) {
-    const oneDayAgo = new Date();
-    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+  async getNextWord(
+    userId: number,
+    currentCategory: any,
+    currentLevel: number,
+    previousWords = [],
+    practiceMode: PRACTICE_MODES
+  ) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to the start of the day
 
-    const { data: words, error } = await this.supabase
+    let query = this.supabase
       .from('words')
       .select('*')
       .eq('user_id', userId)
       .eq('category_id', currentCategory.id)
-      .lt('mastery_level', 90)
-      .or(`last_practiced.is.null,last_practiced.lt.${oneDayAgo.toISOString()}`)
+      .eq('level', currentLevel)
       .not('id', 'in', `(${previousWords.join(',')})`)
-      .order('last_practiced', { ascending: true, nullsFirst: true })
+      .order('created_at', { ascending: true, nullsFirst: true })
       .limit(1);
+
+    if (practiceMode === PRACTICE_MODES.LEARN) {
+      query = query.eq('mastery_level', 0);
+    } else {
+      query = query
+        .gt('mastery_level', 0)
+        .or(`last_practiced.is.null,last_practiced.lt.${today.toISOString()}`);
+    }
+
+    const { data: word, error } = await query;
 
     if (error) {
       console.error('Error fetching word:', error);
-      throw error;
+      return null;
     }
-    if (!words?.length) return null;
+
+    if (!word?.length) return null;
 
     const { data: otherWords, error: otherError } = await this.supabase
       .from('words')
       .select('word, translation')
       .eq('category_id', currentCategory.id)
-      .neq('id', words[0].id)
+      .neq('id', word[0].id)
       .limit(10);
 
     if (otherError) {
@@ -37,7 +53,7 @@ export class PracticeService {
     }
 
     return {
-      word: words[0],
+      word: word[0],
       otherWords: otherWords?.map((w) => w.word) || [],
       otherTranslations: otherWords?.map((w) => w.translation) || []
     };

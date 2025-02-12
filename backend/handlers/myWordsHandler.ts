@@ -8,6 +8,7 @@ import {
   addLevelNavigationRow,
   handleLevelNavigation
 } from '../utils/levelNavigation';
+import { getProgressEmoji } from '../utils/getProgressEmoji';
 
 interface ViewState {
   currentLevel: number;
@@ -24,13 +25,13 @@ const showWordsForLevel = async (
   level: number,
   messageId?: number
 ) => {
-  const { max, hasLevels } = await wordsService.getCurrentAndMaxLevel(userId, categoryId);
+  const { max, hasLevels } = await wordsService.getMaxLevel(userId, categoryId);
   const words = await wordsService.getWordsByLevel(userId, categoryId, hasLevels ? level : null);
 
   const wordsList = words
     .map((w) => {
       const progress = w.mastery_level || 0;
-      const progressEmoji = progress >= 90 ? '🌳' : progress >= 50 ? '🌿' : '🌱';
+      const progressEmoji = getProgressEmoji(progress);
       return `${progressEmoji} ${w.word} - ${w.translation}`;
     })
     .join('\n\n');
@@ -73,7 +74,7 @@ export const myWordsHandler = (bot: TelegramBot) => {
           const state = viewStates.get(chatId);
           if (!state) return;
 
-          const { max } = await wordsService.getCurrentAndMaxLevel(userId, state.categoryId);
+          const { max } = await wordsService.getMaxLevel(userId, state.categoryId);
           const newLevel = handleLevelNavigation(callbackData, state.currentLevel, max);
 
           state.currentLevel = newLevel;
@@ -109,13 +110,14 @@ export const myWordsHandler = (bot: TelegramBot) => {
         return;
       }
 
+      const currentLevel = currentCategory.current_level || 1;
+
       // Initialize view state
       viewStates.set(chatId, {
-        currentLevel: 1,
+        currentLevel,
         categoryId: currentCategory.id
       });
-
-      await showWordsForLevel(bot, chatId, userId, currentCategory.id, 1);
+      await showWordsForLevel(bot, chatId, userId, currentCategory.id, currentLevel);
     } catch (error) {
       console.error('Error fetching words:', error);
       await bot.sendMessage(chatId, MESSAGES.ERRORS.FETCH_WORDS, await mainKeyboard(userId));

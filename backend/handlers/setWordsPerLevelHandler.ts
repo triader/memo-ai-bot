@@ -1,7 +1,7 @@
 import TelegramBot, { Message } from 'node-telegram-bot-api';
 import { MESSAGES } from '../constants';
 import { BotState, cancelKeyboard, mainKeyboard, stateManager } from '../utils';
-import { userSettingsService, wordsService } from '../server';
+import { categoryService, userSettingsService, wordsService } from '../server';
 
 export const setWordsPerLevelHandler = (bot: TelegramBot) => {
   return async (msg: Message) => {
@@ -13,7 +13,6 @@ export const setWordsPerLevelHandler = (bot: TelegramBot) => {
 
     try {
       const state = stateManager.getState();
-      const keyboard = await mainKeyboard(userId);
 
       if (state !== BotState.SETTING_WORDS_PER_LEVEL) {
         stateManager.setState(BotState.SETTING_WORDS_PER_LEVEL);
@@ -30,10 +29,12 @@ export const setWordsPerLevelHandler = (bot: TelegramBot) => {
 
       const currentCategory = await userSettingsService.getCurrentCategory(userId);
       if (!currentCategory) {
-        await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, keyboard);
+        await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, await mainKeyboard(userId));
         stateManager.clearState();
         return;
       }
+
+      await categoryService.updateCategoryLevel(currentCategory.id, 1);
 
       // Update category setting and reorganize words
       const success = await wordsService.reorganizeWordsIntoLevels(
@@ -46,10 +47,14 @@ export const setWordsPerLevelHandler = (bot: TelegramBot) => {
         await bot.sendMessage(
           chatId,
           MESSAGES.PROMPTS.WORDS_PER_LEVEL_SET(wordsPerLevel),
-          keyboard
+          await mainKeyboard(userId)
         );
       } else {
-        await bot.sendMessage(chatId, MESSAGES.ERRORS.WORDS_PER_LEVEL_FAILED, keyboard);
+        await bot.sendMessage(
+          chatId,
+          MESSAGES.ERRORS.WORDS_PER_LEVEL_FAILED,
+          await mainKeyboard(userId)
+        );
       }
 
       stateManager.clearState();

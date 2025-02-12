@@ -6,7 +6,8 @@ export const MESSAGES = {
     NO_MORE_WORDS: 'No more words available for practice in this category.',
     INVALID_PRACTICE_TYPE: '❌ Please select a valid practice type or cancel.',
     PRACTICE: '❌ Failed to process practice. Please try again.',
-    PRACTICE_SUMMARY: '❌ Sorry, there was an error creating your practice summary. Please try again.'
+    PRACTICE_SUMMARY:
+      '❌ Sorry, there was an error creating your practice summary. Please try again.'
   },
   PRACTICE_SUMMARY: {
     HEADER: '🎉 Practice session complete!\n\n',
@@ -15,7 +16,7 @@ export const MESSAGES = {
     WRONG: (count: number) => `❌ Wrong: ${count}`,
     SKIPPED: (count: number) => `⏭️ Skipped: ${count}`,
     SUCCESS_RATE: (emoji: string, percentage: number) => `${emoji} Success rate: ${percentage}%`,
-    PRACTICED_WORDS: 'Practiced words:',
+    PRACTICED_WORDS: 'Practiced words: \n\n',
     FOOTER: 'Keep practicing to improve your vocabulary!'
   },
   PROMPTS: {

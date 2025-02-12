@@ -25,7 +25,7 @@ const showWordsForLevel = async (
   level: number,
   messageId?: number
 ) => {
-  const { max, hasLevels } = await wordsService.getCurrentAndMaxLevel(userId, categoryId);
+  const { max, hasLevels } = await wordsService.getMaxLevel(userId, categoryId);
   const words = await wordsService.getWordsByLevel(userId, categoryId, hasLevels ? level : null);
 
   const keyboard = {
@@ -93,7 +93,7 @@ export function deleteWordHandler(bot: TelegramBot) {
         const state = deleteStates.get(chatId);
         if (!state) return;
 
-        const { max } = await wordsService.getCurrentAndMaxLevel(userId, state.category.id);
+        const { max } = await wordsService.getMaxLevel(userId, state.category.id);
         const newLevel = handleLevelNavigation(action, state.currentLevel, max);
 
         state.currentLevel = newLevel;
@@ -187,18 +187,20 @@ export function deleteWordHandler(bot: TelegramBot) {
     try {
       await bot.sendChatAction(chatId, 'typing');
       if (text === BUTTONS.DELETE_WORD) {
-        const { current, max } = await wordsService.getCurrentAndMaxLevel(
-          userId,
-          currentCategory.id
-        );
-
+        const currentCategory = await userSettingsService.getCurrentCategory(userId);
+        if (!currentCategory) {
+          const keyboard = await mainKeyboard(userId);
+          await bot.sendMessage(chatId, MESSAGES.ERRORS.GENERAL, keyboard);
+          return;
+        }
+        const currentLevel = currentCategory.current_level || 1;
         deleteStates.set(chatId, {
           action: 'SELECT_WORD_TO_DELETE',
           category: currentCategory,
-          currentLevel: current
+          currentLevel
         });
 
-        await showWordsForLevel(bot, chatId, userId, currentCategory.id, current);
+        await showWordsForLevel(bot, chatId, userId, currentCategory.id, currentLevel);
       }
     } catch (error) {
       console.error('Error in word delete:', error);
