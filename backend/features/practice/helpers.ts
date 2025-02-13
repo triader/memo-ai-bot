@@ -1,9 +1,13 @@
 import TelegramBot, { CallbackQuery } from 'node-telegram-bot-api';
-import { BotState, stateManager } from '../../utils';
+import { BotState, handleLevelNavigation, stateManager } from '../../utils';
 import { MESSAGES, PRACTICE_MODES } from './constants';
 import { practiceStates, startPracticeSession } from './practiceHandler';
 import { wordsService } from '../../server';
-import { createLevelNavigationKeyboard, createPracticeOptionsKeyboard } from './utils';
+import {
+  createLevelNavigationKeyboard,
+  createPracticeOptionsKeyboard,
+  PRACTICE_CALLBACK_PREFIX
+} from './utils';
 import { getProgressEmoji } from '../../utils/getProgressEmoji';
 
 export const createSummaryMessage = (practicedWordsDetails: any[], sessionResults: any[]) => {
@@ -42,18 +46,11 @@ export const handlePracticeCallback = async (bot: TelegramBot, query: CallbackQu
   try {
     await bot.answerCallbackQuery(query.id);
 
-    if (callbackData.startsWith('level_')) {
-      const direction = callbackData.split('_')[1];
-      let newLevel = state.currentLevel!;
+    if (callbackData.startsWith(PRACTICE_CALLBACK_PREFIX)) {
+      const direction = callbackData.replace(PRACTICE_CALLBACK_PREFIX, '');
 
-      if (direction === 'back' && state.currentLevel! > 1) {
-        newLevel = state.currentLevel! - 1;
-      } else if (direction === 'forward') {
-        const { max: maxLevel } = await wordsService.getMaxLevel(userId, state.currentCategory!.id);
-        if (state.currentLevel! < maxLevel) {
-          newLevel = state.currentLevel! + 1;
-        }
-      }
+      const { max: maxLevel } = await wordsService.getMaxLevel(userId, state.currentCategory!.id);
+      const newLevel = handleLevelNavigation(direction, state.currentLevel!, maxLevel);
 
       // Update state with new level
       state.currentLevel = newLevel;
@@ -64,8 +61,6 @@ export const handlePracticeCallback = async (bot: TelegramBot, query: CallbackQu
         state.currentCategory!.id,
         newLevel
       );
-
-      const { max: maxLevel } = await wordsService.getMaxLevel(userId, state.currentCategory!.id);
 
       await bot.editMessageText(`Practice level ${newLevel}`, {
         chat_id: chatId,

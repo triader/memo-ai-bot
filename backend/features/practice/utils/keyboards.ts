@@ -1,3 +1,4 @@
+import { LEVEL_NAVIGATION } from '../../../utils/levelNavigation';
 import { BUTTONS, PRACTICE_TYPE_LABELS, PRACTICE_TYPES } from '../constants';
 
 export const createPracticeTypeKeyboard = () => ({
@@ -50,23 +51,37 @@ export const createMultipleChoiceKeyboard = (options: string[]) => ({
   }
 });
 
+export const PRACTICE_CALLBACK_PREFIX = 'practice_';
+
 export const createLevelNavigationKeyboard = (currentLevel: number, maxLevel: number) => {
   const buttons = [];
 
-  if (currentLevel > 1) {
-    buttons.push({
-      text: '⬅️ Previous Level',
-      callback_data: 'level_back'
-    });
+  if (maxLevel > 1) {
+    if (currentLevel > 1) {
+      buttons.push({
+        text: '⏮ First',
+        callback_data: `${PRACTICE_CALLBACK_PREFIX}${LEVEL_NAVIGATION.FIRST}`
+      });
+    }
+    if (currentLevel > 1) {
+      buttons.push({
+        text: '◀️ Previous',
+        callback_data: `${PRACTICE_CALLBACK_PREFIX}${LEVEL_NAVIGATION.PREV}`
+      });
+    }
+    if (currentLevel < maxLevel) {
+      buttons.push({
+        text: 'Next ▶️',
+        callback_data: `${PRACTICE_CALLBACK_PREFIX}${LEVEL_NAVIGATION.NEXT}`
+      });
+    }
+    if (currentLevel < maxLevel) {
+      buttons.push({
+        text: 'Last ⏭',
+        callback_data: `${PRACTICE_CALLBACK_PREFIX}${LEVEL_NAVIGATION.LAST}`
+      });
+    }
   }
-
-  if (currentLevel < maxLevel) {
-    buttons.push({
-      text: 'Next Level ➡️',
-      callback_data: 'level_forward'
-    });
-  }
-
   return [buttons];
 };
 

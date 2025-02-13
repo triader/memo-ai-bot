@@ -32,7 +32,8 @@ import {
 } from './features';
 import TelegramBot, { CallbackQuery, Message } from 'node-telegram-bot-api';
 import { getLevelSelectionKeyboard, getMainKeyboard } from './utils/keyboards';
-
+import { MY_WORDS_CALLBACK_PREFIX } from './handlers/myWordsHandler';
+import { PRACTICE_CALLBACK_PREFIX } from './features/practice/utils/keyboards';
 export function inputHandler(bot: TelegramBot) {
   bot.on('message', async (msg: Message) => {
     const chatId = msg.chat.id;
@@ -220,7 +221,7 @@ export function inputHandler(bot: TelegramBot) {
       if (
         query.data === 'review_words' ||
         query.data === 'learn_new_words' ||
-        query.data.startsWith('level_')
+        query.data.startsWith(PRACTICE_CALLBACK_PREFIX)
       ) {
         await handlePracticeCallback(bot, query);
         return;
@@ -255,15 +256,20 @@ export function inputHandler(bot: TelegramBot) {
       }
 
       // Handle my words level navigation
-      if (Object.values(LEVEL_NAVIGATION).includes(query.data as any)) {
-        if (!query.message) return;
-        await myWordsHandler(bot)({
-          // @ts-ignore
-          callback_query: query,
-          chat: query.message.chat,
-          from: query.from
-        });
-        return;
+      if (query.data.startsWith(MY_WORDS_CALLBACK_PREFIX)) {
+        //FIXME: to better handle callbacks for level navigation in different components
+        query.data = query.data.replace(MY_WORDS_CALLBACK_PREFIX, '');
+
+        if (Object.values(LEVEL_NAVIGATION).includes(query.data as any)) {
+          if (!query.message) return;
+          await myWordsHandler(bot)({
+            // @ts-ignore
+            callback_query: query,
+            chat: query.message.chat,
+            from: query.from
+          });
+          return;
+        }
       }
 
       // Handle level selection from inline keyboard

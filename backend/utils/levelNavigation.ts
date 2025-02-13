@@ -1,8 +1,8 @@
 export const LEVEL_NAVIGATION = {
-  FIRST: 'level_first',
-  PREV: 'level_prev',
-  NEXT: 'level_next',
-  LAST: 'level_last'
+  FIRST: 'first',
+  PREV: 'prev',
+  NEXT: 'next',
+  LAST: 'last'
 } as const;
 
 export const addLevelNavigationRow = (

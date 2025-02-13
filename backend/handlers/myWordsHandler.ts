@@ -15,6 +15,8 @@ interface ViewState {
   categoryId: string;
 }
 
+export const MY_WORDS_CALLBACK_PREFIX = 'my_words_';
+
 const viewStates = new Map<number, ViewState>();
 
 const showWordsForLevel = async (
@@ -42,7 +44,7 @@ const showWordsForLevel = async (
 
   const keyboard = { inline_keyboard: [] };
   if (hasLevels) {
-    addLevelNavigationRow(keyboard, level, max);
+    addLevelNavigationRow(keyboard, level, max, MY_WORDS_CALLBACK_PREFIX);
   }
 
   if (messageId) {
