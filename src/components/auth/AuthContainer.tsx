@@ -2,13 +2,36 @@ import React, { useState } from 'react';
 import { Languages } from 'lucide-react';
 import LoginForm from './LoginForm';
 import SignupForm from './SignupForm';
+import TelegramLogin from '../TelegramLogin';
 
 interface AuthContainerProps {
   onAuthSuccess: () => void;
 }
 
-export default function AuthContainer({ onAuthSuccess }: AuthContainerProps) {
+const AuthContainer: React.FC<AuthContainerProps> = ({ onAuthSuccess }) => {
   const [view, setView] = useState<'login' | 'signup'>('login');
+
+  const handleTelegramAuth = async (telegramUser: any) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/telegram`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(telegramUser)
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        onAuthSuccess();
+      } else {
+        console.error('Authentication failed:', result.error);
+      }
+    } catch (err) {
+      console.error('Error during authentication:', err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
@@ -23,7 +46,18 @@ export default function AuthContainer({ onAuthSuccess }: AuthContainerProps) {
         ) : (
           <SignupForm onSuccess={onAuthSuccess} onToggleView={() => setView('login')} />
         )}
+
+        {/* Telegram Login Button */}
+        <div className="flex justify-center mt-4">
+          <TelegramLogin
+            botName="FlashCardsAIBot"
+            onAuth={handleTelegramAuth}
+            authUrl={`${import.meta.env.VITE_API_URL}/auth/telegram`}
+          />
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default AuthContainer;
