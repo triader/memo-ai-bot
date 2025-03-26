@@ -1,5 +1,5 @@
 [build]
-  command = "CI=false npm run build"
+  command = "CI=false npm install && npx vite build"
   publish = "dist"
 
 [build.environment]
