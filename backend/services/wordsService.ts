@@ -497,4 +497,32 @@ export class WordsService {
       throw new Error('Failed to reset progress');
     }
   }
+
+  async checkWordExists(
+    userId: number,
+    categoryId: string,
+    word: string
+  ): Promise<{ exists: boolean; existingWord?: { word: string; translation: string } }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('words')
+        .select('word, translation')
+        .eq('user_id', userId)
+        .eq('category_id', categoryId)
+        .or(`word.eq.${word.toLowerCase()}`);
+
+      if (error) {
+        console.error('Error checking for duplicate word:', error);
+        throw error;
+      }
+
+      return {
+        exists: data && data.length > 0,
+        existingWord: data && data.length > 0 ? data[0] : undefined
+      };
+    } catch (error) {
+      console.error('Error in checkWordExists:', error);
+      throw error;
+    }
+  }
 }

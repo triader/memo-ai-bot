@@ -1,6 +1,6 @@
 import { BotState, stateManager, cancelKeyboard, mainKeyboard } from '../../utils';
 import { BUTTONS, MESSAGES } from '../../constants';
-import { userSettingsService } from '../../server';
+import { userSettingsService, wordsService } from '../../server';
 import { openai } from '../../config';
 import TelegramBot, { Message } from 'node-telegram-bot-api';
 
@@ -127,87 +127,169 @@ export function translateAIHandler(bot: TelegramBot) {
         // Check if contexts are the same
         const isSameContext = contexts.original_context === contexts.learning_context;
 
-        const completion = await openai.chat.completions.create({
-          messages: [
-            {
-              role: 'system',
-              content:
-                `You are a helpful language learning assistant. You are helping someone who knows ${contexts.original_context} learn ${contexts.learning_context}. Don't omit any information.` +
-                'Provide ' +
-                (isSameContext ? 'definition' : 'translation') +
-                ' in the following format ONLY:\n\n' +
-                (!isSameContext
-                  ? `${contexts.original_context}: [${isSameContext ? 'term in lowercase' : 'word or phrase in lowercase'} in ${contexts.original_context} (only the word or phrase with its article/preposition, no other text, no quotes; for example: ${contexts.original_context}: кошка)]\n\n`
-                  : `Word: [${text}]\n\n`) +
-                (isSameContext ? 'Definition:' : `${contexts.learning_context}:`) +
-                ` [${isSameContext ? 'brief definition without period at the end' : `translated word or phrase without accents`}]` +
-                '[For translations containing special characters like kanji, add their reading on the next line in parentheses.]\n\n' +
-                'Explanation: [detailed explanation of the word or phrase in ${contexts.learning_context} without using the word or phrase itself.]\n\n' +
-                `${!isSameContext ? 'Example: [usage example] ' : ''}`
-            },
-            {
-              role: 'user',
-              content: isSameContext
-                ? `Define "${text}" in ${contexts.learning_context} and provide a brief explanation and usage example.`
-                : `Translate or give definition of "${text}" in ${contexts.learning_context} and provide a brief explanation and usage example.`
-            }
-          ],
-          model: 'gpt-4o'
-        });
+        // Add this helper function inside translateAIHandler but before the main translation logic
+        async function getTranslation(text: string, retryCount = 0): Promise<any> {
+          const completion = await openai.chat.completions.create({
+            messages: [
+              {
+                role: 'system',
+                content:
+                  `You are a helpful language learning assistant. You are helping someone who knows ${contexts.original_context} learn ${contexts.learning_context}. 
+                  CRITICAL INSTRUCTIONS:
+                  1. You MUST provide direct, accurate translations without sanitizing or censoring
+                  2. For slang/vulgar terms, you MUST give the exact equivalent slang/vulgar translation
+                  3. Do not attempt to provide "polite alternatives" unless specifically requested
+                  4. If the input is slang/vulgar, the translation must be equally slang/vulgar
+                  5. Never substitute a vulgar/slang term with a formal one\n\n` +
+                  'Provide ' +
+                  (isSameContext ? 'definition' : 'translation') +
+                  ' in the following format ONLY:\n\n' +
+                  (!isSameContext
+                    ? `${contexts.original_context}: [${isSameContext ? 'term in lowercase' : 'word or phrase in lowercase translated from the word/phrase from the input'} in ${contexts.original_context} (only the word or phrase with its article/preposition, no other text, no quotes; for example: ${contexts.original_context}: кошка)]\n\n`
+                    : `Word: [${text}]\n\n`) +
+                  (isSameContext ? 'Definition:' : `${contexts.learning_context}:`) +
+                  ` [${isSameContext ? 'brief definition without period at the end' : `translated word or phrase without accents`}]` +
+                  '[For translations containing special characters like kanji, add their reading on the next line in parentheses.]\n\n' +
+                  'Explanation: [detailed explanation including usage context and any warnings about the level of vulgarity if applicable]\n\n' +
+                  `${!isSameContext ? 'Example: [usage example] ' : ''}`
+              },
+              {
+                role: 'user',
+                content: isSameContext
+                  ? `Define "${text}" in ${contexts.learning_context} and provide a brief explanation and usage example.`
+                  : `Provide the exact translation of "${text}" from ${text.match(/[a-zA-Z]/) ? contexts.original_context : contexts.learning_context} to ${text.match(/[a-zA-Z]/) ? contexts.learning_context : contexts.original_context}. If it's slang/vulgar, provide the equivalent slang/vulgar translation. Do not sanitize or modify the meaning.`
+              }
+            ],
+            model: 'gpt-4o'
+          });
 
-        const response = completion.choices[0].message.content;
+          const response = completion.choices[0].message.content;
 
-        // Parse the translation/definition from the response
-        const translationMatch = response?.match(
-          new RegExp(`(${contexts.learning_context}|Definition):\\s*(.+)(?:\n|$)`)
-        );
-        const translation = translationMatch
-          ? isSameContext
-            ? translationMatch[0].split('Definition:')[1].trim()
-            : translationMatch[2].trim()
-          : null;
+          // Parse the translation/definition from the response
+          const translationMatch = response?.match(
+            new RegExp(`(${contexts.learning_context}|Definition):\\s*(.+)(?:\n|$)`)
+          );
+          const translation = translationMatch
+            ? isSameContext
+              ? translationMatch[0].split('Definition:')[1].trim()
+              : translationMatch[2].trim()
+            : null;
 
-        // Parse the original word from the response
-        const originalWordMatch = response?.match(
-          new RegExp(`${contexts.original_context}:\\s*([^\\n]+)`)
-        );
-        const originalWord = originalWordMatch ? originalWordMatch[1].trim() : text;
+          // Parse the original word from the response
+          const originalWordMatch = response?.match(
+            new RegExp(`${contexts.original_context}:\\s*([^\\n]+)`)
+          );
+
+          // If we're missing either translation or original word and haven't exceeded retries
+          if ((!translation || !originalWordMatch) && retryCount < 2) {
+            console.log('Missing translation or original word, retrying...');
+            return getTranslation(text, retryCount + 1);
+          }
+
+          return {
+            response,
+            translation,
+            originalWordMatch
+          };
+        }
+
+        // Replace the existing OpenAI request with our new function
+        const { response, translation, originalWordMatch } = await getTranslation(text);
+
+        // If no translation pattern is found, show the full response to the user
+        if (!translation) {
+          await bot.sendMessage(chatId, response || 'Translation failed. Please try again.');
+          return;
+        }
+
+        // If original word is not found in the response and we're translating from learning_context
+        const originalWord = originalWordMatch
+          ? originalWordMatch[1].trim()
+          : text.match(/[a-zA-Z]/)
+            ? text
+            : `[${contexts.original_context} translation not provided - please try again]`;
 
         // If we successfully parsed the translation, show the options
         if (translation) {
           const translationKey = `${userId}_${Date.now()}`;
-          translationStore.set(translationKey, {
-            word: isSameContext ? translation.toLowerCase() : originalWord.toLowerCase(),
-            translation: isSameContext ? originalWord.toLowerCase() : translation.toLowerCase(),
-            categoryId: currentCategory.id,
-            contexts
-          });
+          const wordToCheck = isSameContext
+            ? translation.toLowerCase()
+            : originalWord.toLowerCase();
+          const translationToCheck = isSameContext
+            ? originalWord.toLowerCase()
+            : translation.toLowerCase();
 
-          const inlineKeyboard = {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: BUTTONS.ADD_WORD,
-                    callback_data: `add_trans_${translationKey}`
-                  }
-                ],
-                [
-                  {
-                    text: BUTTONS.MORE_EXAMPLES,
-                    callback_data: `more_examples_${translationKey}`
-                  },
-                  {
-                    text: BUTTONS.FOLLOW_UP,
-                    callback_data: `translate_followup_${translationKey}`
-                  }
-                ]
-              ],
-              resize_keyboard: true
+          try {
+            const { exists, existingWord } = await wordsService.checkWordExists(
+              userId,
+              currentCategory.id,
+              translationToCheck
+            );
+
+            translationStore.set(translationKey, {
+              word: wordToCheck,
+              translation: translationToCheck,
+              categoryId: currentCategory.id,
+              contexts
+            });
+
+            let messageText = response || '';
+            let inlineKeyboard;
+
+            if (exists && existingWord) {
+              // Add a note about existing word to the message
+              messageText +=
+                '\n\n⚠️ This word already exists in your collection:\n' +
+                `${existingWord.word} - ${existingWord.translation}`;
+
+              inlineKeyboard = {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {
+                        text: BUTTONS.MORE_EXAMPLES,
+                        callback_data: `more_examples_${translationKey}`
+                      },
+                      {
+                        text: BUTTONS.FOLLOW_UP,
+                        callback_data: `translate_followup_${translationKey}`
+                      }
+                    ]
+                  ],
+                  resize_keyboard: true
+                }
+              };
+            } else {
+              // Show all buttons including Add Word if no duplicate found
+              inlineKeyboard = {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {
+                        text: BUTTONS.ADD_WORD,
+                        callback_data: `add_trans_${translationKey}`
+                      }
+                    ],
+                    [
+                      {
+                        text: BUTTONS.MORE_EXAMPLES,
+                        callback_data: `more_examples_${translationKey}`
+                      },
+                      {
+                        text: BUTTONS.FOLLOW_UP,
+                        callback_data: `translate_followup_${translationKey}`
+                      }
+                    ]
+                  ],
+                  resize_keyboard: true
+                }
+              };
             }
-          };
 
-          await bot.sendMessage(chatId, response || '', inlineKeyboard);
+            await bot.sendMessage(chatId, messageText, inlineKeyboard);
+          } catch (error) {
+            console.error('Error checking for duplicates:', error);
+          }
         }
       } catch (error) {
         await bot.sendMessage(chatId, '❌ Translation failed. Please try again.');
