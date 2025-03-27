@@ -89,27 +89,51 @@ export const addWordHandler = (bot: TelegramBot) => {
           break;
 
         case 'waiting_word':
-          const word = text?.trim();
+          const word = text?.trim().toLowerCase();
           if (!word) {
             await bot.sendMessage(chatId, 'Please enter a valid word.', cancelKeyboard);
             return;
           }
 
-          wordStates.set(chatId, {
-            ...state,
-            step: 'waiting_translation',
-            word
-          });
+          try {
+            const { exists, existingWord } = await wordsService.checkWordExists(
+              userId,
+              state.categoryId,
+              word
+            );
 
-          await bot.sendMessage(
-            chatId,
-            `Great! Now enter the translation for "${word}":`,
-            cancelKeyboard
-          );
+            if (exists && existingWord) {
+              const keyboard = await mainKeyboard(userId);
+              await bot.sendMessage(
+                chatId,
+                `⚠️ This word already exists in your collection:\n${existingWord.word} - ${existingWord.translation}`,
+                keyboard
+              );
+              wordStates.delete(chatId);
+              return;
+            }
+
+            wordStates.set(chatId, {
+              ...state,
+              step: 'waiting_translation',
+              word
+            });
+
+            await bot.sendMessage(
+              chatId,
+              `Great! Now enter the translation for "${word}":`,
+              cancelKeyboard
+            );
+          } catch (error) {
+            console.error('Error checking for duplicate word:', error);
+            const keyboard = await mainKeyboard(userId);
+            await bot.sendMessage(chatId, '❌ Failed to add word. Please try again.', keyboard);
+            wordStates.delete(chatId);
+          }
           break;
 
         case 'waiting_translation':
-          const translation = text?.trim();
+          const translation = text?.trim().toLowerCase();
           if (!translation) {
             await bot.sendMessage(chatId, 'Please enter a valid translation.', cancelKeyboard);
             return;
@@ -125,7 +149,11 @@ export const addWordHandler = (bot: TelegramBot) => {
 
             if (result) {
               const keyboard = await mainKeyboard(userId);
-              await bot.sendMessage(chatId, `✅ Word added successfully!`, keyboard);
+              await bot.sendMessage(
+                chatId,
+                `✅ Added to dictionary:\n${state.word} - ${translation}`,
+                keyboard
+              );
             } else {
               throw new Error('Failed to add word');
             }

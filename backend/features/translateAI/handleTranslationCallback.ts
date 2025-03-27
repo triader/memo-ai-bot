@@ -26,7 +26,6 @@ export async function handleTranslationCallback(bot: TelegramBot, callbackQuery:
 async function addWordCallback(bot: TelegramBot, callbackQuery: any) {
   const userId = callbackQuery.from.id;
   const chatId = callbackQuery.message.chat.id;
-  const messageId = callbackQuery.message.message_id;
   try {
     const translationKey = callbackQuery.data.replace('add_trans_', '');
     const translationData = translationStore.get(translationKey);
