@@ -10,7 +10,7 @@ import {
   normalizeAnswer
 } from './utils';
 import { createSummaryMessage, exitPractice } from './helpers';
-import { categoryService, practiceService, userSettingsService, wordsService } from '../../server';
+import { practiceService, userSettingsService, wordsService } from '../../server';
 import { Category } from '../../services';
 import TelegramBot, { Message } from 'node-telegram-bot-api';
 import { supabase } from '../../config';
@@ -158,7 +158,6 @@ export const practiceHandler = (bot: TelegramBot) => {
     if (state.wordId) {
       await updateWordProgress(supabase, state.wordId, isCorrectAnswer);
     }
-    const level = await categoryService.getCurrentLevel(state.currentCategory?.id!);
 
     if (!state.practicedWords) return;
 
@@ -166,7 +165,7 @@ export const practiceHandler = (bot: TelegramBot) => {
     const nextWordData = await practiceService.getNextWord(
       userId,
       state.currentCategory,
-      level,
+      state.currentLevel!!,
       // @ts-ignore
       state.practicedWords,
       state.practiceMode
