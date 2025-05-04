@@ -10,25 +10,15 @@ import {
   normalizeAnswer
 } from './utils';
 import { createSummaryMessage, exitPractice } from './helpers';
-import { categoryService, practiceService, userSettingsService, wordsService } from '../../server';
+import { practiceService, userSettingsService, wordsService } from '../../server';
 import { Category } from '../../services';
 import TelegramBot, { Message } from 'node-telegram-bot-api';
 import { supabase } from '../../config';
-
-interface PracticeState {
-  wordId?: string;
-  word?: string;
-  correctAnswer?: string;
-  practiceType?: PRACTICE_TYPES;
-  isWaitingForAnswer?: boolean;
-  sessionProgress?: number;
-  practicedWords?: string[];
-  currentCategory?: Category;
-  selectedType?: PRACTICE_TYPES;
-  sessionResults?: Record<string, boolean | 'skipped'>;
-  currentLevel?: number;
-  practiceMode?: PRACTICE_MODES;
-}
+import { getRandomPracticeType } from './utils/getRandomPracticeType';
+import { getPracticeTypeBasedOnProgress } from './utils/getPracticeTypeBasedOnProgress';
+import { PracticeState } from './state';
+import { stripParentheses } from './utils/stripParentheses';
+import { isReverseType } from './utils/isReverseType';
 
 export const practiceStates = new Map<number, PracticeState>();
 
@@ -42,27 +32,59 @@ interface WordData {
   otherTranslations: string[];
 }
 
-const getRandomPracticeType = () => {
-  const types = [
-    PRACTICE_TYPES.TRANSLATE,
-    PRACTICE_TYPES.TRANSLATE_REVERSE,
-    PRACTICE_TYPES.MULTIPLE_CHOICE,
-    PRACTICE_TYPES.REVERSE_MULTIPLE_CHOICE
-  ];
-  return types[Math.floor(Math.random() * types.length)];
-};
+// Function to start a practice session
+export async function startPracticeSession(
+  bot: TelegramBot,
+  chatId: number,
+  userId: number,
+  category: Category,
+  level: number
+) {
+  const words =
+    practiceStates.get(chatId)?.practiceMode === PRACTICE_MODES.REVIEW
+      ? await wordsService.getWordsForReview(userId, category.id, level, WORDS_PER_SESSION)
+      : await wordsService.getNewWords(userId, category.id, level, WORDS_PER_SESSION);
 
-const determinePracticeType = (masteryLevel: number): PRACTICE_TYPES => {
-  if (masteryLevel >= 0 && masteryLevel <= 29) {
-    return PRACTICE_TYPES.MULTIPLE_CHOICE;
-  } else if (masteryLevel >= 30 && masteryLevel <= 59) {
-    return PRACTICE_TYPES.TRANSLATE;
-  } else if (masteryLevel >= 60 && masteryLevel <= 79) {
-    return PRACTICE_TYPES.REVERSE_MULTIPLE_CHOICE;
-  } else {
-    return PRACTICE_TYPES.TRANSLATE_REVERSE;
+  if (words.length === 0) {
+    await bot.sendMessage(
+      chatId,
+      `No words available for ${practiceStates.get(chatId)?.practiceMode} at this level.`
+    );
+    return;
   }
-};
+
+  const wordData = words[0]; // Start with the first word
+  const practiceType = getPracticeTypeBasedOnProgress(wordData.mastery_level);
+  const isReverse = isReverseType(practiceType);
+
+  // Prepare the WordData object correctly
+  const wordDetails: WordData = {
+    word: {
+      id: wordData.id,
+      word: wordData.word,
+      translation: wordData.translation
+    },
+    otherWords: words.slice(1).map((w) => w.word), // Assuming other words are the rest
+    otherTranslations: words.slice(1).map((w) => w.translation) // Assuming other translations are the rest
+  };
+
+  practiceStates.set(chatId, {
+    wordId: wordDetails.word.id,
+    word: wordDetails.word.word,
+    correctAnswer: isReverse ? wordDetails.word.word : wordDetails.word.translation,
+    practiceType,
+    isWaitingForAnswer: true,
+    sessionProgress: 1,
+    practicedWords: [wordDetails.word.id],
+    currentCategory: category,
+    currentLevel: level,
+    sessionResults: {},
+    practiceMode: practiceStates.get(chatId)?.practiceMode,
+    isReverse
+  });
+
+  await sendPracticeQuestion(bot, chatId, wordDetails, practiceType);
+}
 
 const sendPracticeQuestion = async (
   bot: TelegramBot,
@@ -123,49 +145,6 @@ const sendPracticeQuestion = async (
   }
 };
 
-const isReverseType = (practiceType: PRACTICE_TYPES): boolean => {
-  if (
-    practiceType === PRACTICE_TYPES.REVERSE_MULTIPLE_CHOICE ||
-    practiceType === PRACTICE_TYPES.TRANSLATE_REVERSE
-  ) {
-    return true;
-  }
-  return false;
-};
-
-// export const handlePracticeTypeSelection = async (
-//   bot: TelegramBot,
-//   chatId: number,
-//   userId: number,
-//   selectedType: PracticeType,
-//   currentCategory: Category
-// ) => {
-//   const wordData = await practiceService.getNextWord(userId, currentCategory);
-
-//   if (!wordData) {
-//     const keyboard = await mainKeyboard(userId);
-//     await bot.sendMessage(chatId, MESSAGES.ERRORS.NO_PRACTICE_WORDS, keyboard);
-//     practiceStates.delete(chatId);
-//     stateManager.clearState();
-//     return;
-//   }
-
-//   const isReverse = isReverseType(selectedType);
-
-//   practiceStates.set(chatId, {
-//     wordId: wordData.word.id,
-//     word: wordData.word.word,
-//     correctAnswer: isReverse ? wordData.word.word : wordData.word.translation,
-//     practiceType: selectedType,
-//     isWaitingForAnswer: true,
-//     sessionProgress: 1,
-//     practicedWords: [wordData.word.id],
-//     currentCategory,
-//     selectedType
-//   });
-//   await sendPracticeQuestion(bot, chatId, wordData, selectedType);
-// };
-
 export const practiceHandler = (bot: TelegramBot) => {
   const handleAnswerResult = async (
     chatId: number,
@@ -179,7 +158,6 @@ export const practiceHandler = (bot: TelegramBot) => {
     if (state.wordId) {
       await updateWordProgress(supabase, state.wordId, isCorrectAnswer);
     }
-    const level = await categoryService.getCurrentLevel(state.currentCategory?.id!);
 
     if (!state.practicedWords) return;
 
@@ -187,7 +165,7 @@ export const practiceHandler = (bot: TelegramBot) => {
     const nextWordData = await practiceService.getNextWord(
       userId,
       state.currentCategory,
-      level,
+      state.currentLevel!!,
       // @ts-ignore
       state.practicedWords,
       state.practiceMode
@@ -202,6 +180,8 @@ export const practiceHandler = (bot: TelegramBot) => {
     }
 
     const isReverse = isReverseType(state.practiceType);
+    console.log('🚀 ~ practiceHandler ~ state.practiceType:', state.practiceType);
+    console.log('🚀 ~ practiceHandler ~ isReverse:', isReverse);
 
     if (state.correctAnswer === undefined || state.word === undefined) {
       return;
@@ -218,7 +198,7 @@ export const practiceHandler = (bot: TelegramBot) => {
         chatId,
         isCorrectAnswer
           ? MESSAGES.PROMPTS.CORRECT_ANSWER
-          : MESSAGES.PROMPTS.WRONG_ANSWER(isReverse ? state.word : state.correctAnswer),
+          : MESSAGES.PROMPTS.WRONG_ANSWER(state.isReverse ? state.word : state.correctAnswer),
         state.sessionProgress === WORDS_PER_SESSION ? keyboard : removeKeyboard
       );
     }
@@ -239,13 +219,16 @@ export const practiceHandler = (bot: TelegramBot) => {
     const nextPracticeType =
       state.selectedType === PRACTICE_TYPES.RANDOM
         ? getRandomPracticeType()
-        : determinePracticeType(nextWordData.word.mastery_level);
+        : getPracticeTypeBasedOnProgress(nextWordData.word.mastery_level);
+    const nextIsReverse = isReverseType(nextPracticeType);
 
     practiceStates.set(chatId, {
       ...state,
       wordId: nextWordData.word.id,
       word: nextWordData.word.word,
-      correctAnswer: isReverse ? nextWordData.word.word : nextWordData.word.translation,
+      correctAnswer: nextIsReverse
+        ? stripParentheses(nextWordData.word.word)
+        : stripParentheses(nextWordData.word.translation),
       practiceType: nextPracticeType,
       sessionProgress: state.sessionProgress !== undefined ? state.sessionProgress + 1 : 1,
       practicedWords:
@@ -255,7 +238,8 @@ export const practiceHandler = (bot: TelegramBot) => {
       sessionResults: {
         ...(state.sessionResults || {}),
         [state.wordId!]: isSkipped ? 'skipped' : isCorrectAnswer
-      }
+      },
+      isReverse: nextIsReverse
     });
 
     // Send next practice question
@@ -279,21 +263,6 @@ export const practiceHandler = (bot: TelegramBot) => {
       if (!practicedWordsDetails?.length) {
         throw new Error('No practiced words details found');
       }
-
-      const sessionStats =
-        state.practicedWords !== undefined
-          ? state.practicedWords.reduce(
-              (stats, wordId) => {
-                const result = finalSessionResults[wordId];
-                return {
-                  correct: stats.correct + (result === true ? 1 : 0),
-                  skipped: stats.skipped + (result === 'skipped' ? 1 : 0),
-                  total: stats.total + 1
-                };
-              },
-              { correct: 0, skipped: 0, total: 0 }
-            )
-          : { correct: 0, skipped: 0, total: 0 };
 
       const summaryMessage = createSummaryMessage(
         practicedWordsDetails,
@@ -413,6 +382,8 @@ export const practiceHandler = (bot: TelegramBot) => {
 
       if (!state.correctAnswer) return;
       const isCorrect = answer === normalizeAnswer(state.correctAnswer);
+      console.log('🚀 ~ return ~ state.correctAnswer:', state.correctAnswer);
+      console.log('🚀 ~ return ~ answer:', answer);
 
       await handleAnswerResult(chatId, state, userId, isCorrect, keyboard, false);
     } catch (error) {
@@ -423,58 +394,3 @@ export const practiceHandler = (bot: TelegramBot) => {
     }
   };
 };
-
-// Function to start a practice session
-export async function startPracticeSession(
-  bot: TelegramBot,
-  chatId: number,
-  userId: number,
-  category: Category,
-  level: number
-) {
-  const words =
-    practiceStates.get(chatId)?.practiceMode === PRACTICE_MODES.REVIEW
-      ? await wordsService.getWordsForReview(userId, category.id, level, WORDS_PER_SESSION)
-      : await wordsService.getNewWords(userId, category.id, level, WORDS_PER_SESSION);
-
-  if (words.length === 0) {
-    await bot.sendMessage(
-      chatId,
-      `No words available for ${practiceStates.get(chatId)?.practiceMode} at this level.`
-    );
-    return;
-  }
-
-  const wordData = words[0]; // Start with the first word
-  const practiceType = determinePracticeType(wordData.mastery_level);
-
-  // Prepare the WordData object correctly
-  const wordDetails: WordData = {
-    word: {
-      id: wordData.id,
-      word: wordData.word,
-      translation: wordData.translation
-    },
-    otherWords: words.slice(1).map((w) => w.word), // Assuming other words are the rest
-    otherTranslations: words.slice(1).map((w) => w.translation) // Assuming other translations are the rest
-  };
-
-  practiceStates.set(chatId, {
-    wordId: wordDetails.word.id,
-    word: wordDetails.word.word,
-    correctAnswer:
-      practiceType === PRACTICE_TYPES.TRANSLATE_REVERSE
-        ? wordDetails.word.word
-        : wordDetails.word.translation,
-    practiceType,
-    isWaitingForAnswer: true,
-    sessionProgress: 1,
-    practicedWords: [wordDetails.word.id],
-    currentCategory: category,
-    currentLevel: level,
-    sessionResults: {},
-    practiceMode: practiceStates.get(chatId)?.practiceMode
-  });
-
-  await sendPracticeQuestion(bot, chatId, wordDetails, practiceType);
-}
