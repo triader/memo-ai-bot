@@ -1,26 +1,49 @@
-import React, { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../config/supabase';
-import { Award, TrendingUp, Check, X } from 'lucide-react';
 
 interface Stats {
   total_words: number;
   mastered_words: number;
+  learning_words: number;
   total_correct: number;
   total_incorrect: number;
 }
 
-export default function Stats({ userId }: { userId: string }) {
+export default function Stats() {
   const [stats, setStats] = useState<Stats>({
     total_words: 0,
     mastered_words: 0,
+    learning_words: 0,
     total_correct: 0,
     total_incorrect: 0
   });
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStats();
+    checkUser();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      fetchStats();
+    }
   }, [userId]);
+
+  async function checkUser() {
+    try {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    } catch (err) {
+      console.error('Error checking auth status:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function fetchStats() {
     try {
@@ -28,15 +51,13 @@ export default function Stats({ userId }: { userId: string }) {
 
       if (error) throw error;
 
-      const stats = words.reduce(
-        (acc, word) => ({
-          total_words: acc.total_words + 1,
-          mastered_words: acc.mastered_words + (word.mastery_level >= 90 ? 1 : 0),
-          total_correct: acc.total_correct + (word.correct_answers || 0),
-          total_incorrect: acc.total_incorrect + (word.incorrect_answers || 0)
-        }),
-        { total_words: 0, mastered_words: 0, total_correct: 0, total_incorrect: 0 }
-      );
+      const stats = {
+        total_words: words.length,
+        mastered_words: words.filter((word) => word.mastery_level >= 80).length,
+        learning_words: words.filter((word) => word.mastery_level < 80).length,
+        total_correct: words.reduce((sum, word) => sum + word.correct_answers, 0),
+        total_incorrect: words.reduce((sum, word) => sum + word.incorrect_answers, 0)
+      };
 
       setStats(stats);
     } catch (error) {
@@ -50,70 +71,47 @@ export default function Stats({ userId }: { userId: string }) {
     return <div className="flex justify-center">Loading...</div>;
   }
 
+  if (!userId) {
+    return <div className="text-center text-gray-500">Please log in to view your stats.</div>;
+  }
+
+  const accuracy =
+    stats.total_correct + stats.total_incorrect > 0
+      ? Math.round((stats.total_correct / (stats.total_correct + stats.total_incorrect)) * 100)
+      : 0;
+
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <TrendingUp className="h-6 w-6 text-gray-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Words</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.total_words}</dd>
-                </dl>
-              </div>
-            </div>
+    <div className="bg-white rounded-lg shadow p-6">
+      <h2 className="text-2xl font-semibold mb-6">Your Progress</h2>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium text-blue-700">Words</h3>
+          <div className="mt-2 space-y-2">
+            <p className="text-sm text-blue-600">
+              Total: <span className="font-semibold">{stats.total_words}</span>
+            </p>
+            <p className="text-sm text-blue-600">
+              Mastered: <span className="font-semibold">{stats.mastered_words}</span>
+            </p>
+            <p className="text-sm text-blue-600">
+              Learning: <span className="font-semibold">{stats.learning_words}</span>
+            </p>
           </div>
         </div>
 
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Award className="h-6 w-6 text-gray-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Mastered Words</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.mastered_words}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Check className="h-6 w-6 text-gray-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Correct Answers</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.total_correct}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <X className="h-6 w-6 text-gray-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Incorrect Answers</dt>
-                  <dd className="text-lg font-medium text-gray-900">{stats.total_incorrect}</dd>
-                </dl>
-              </div>
-            </div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium text-green-700">Performance</h3>
+          <div className="mt-2 space-y-2">
+            <p className="text-sm text-green-600">
+              Correct Answers: <span className="font-semibold">{stats.total_correct}</span>
+            </p>
+            <p className="text-sm text-green-600">
+              Incorrect Answers: <span className="font-semibold">{stats.total_incorrect}</span>
+            </p>
+            <p className="text-sm text-green-600">
+              Accuracy: <span className="font-semibold">{accuracy}%</span>
+            </p>
           </div>
         </div>
       </div>

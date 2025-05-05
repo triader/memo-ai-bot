@@ -1,56 +1,48 @@
-import React, { useEffect, useState } from 'react';
-import { supabase } from '../config/supabase';
-import { Trash2, Edit } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import CategorySelect from './CategorySelect';
+import { supabase } from '../config/supabase';
+import { WordsService } from '../../backend/services/wordsService';
+import { useAppSelector } from '../store/hooks';
 
 interface Word {
   id: string;
   word: string;
   translation: string;
-  mastery_level: number;
-  correct_answers: number;
-  incorrect_answers: number;
+  level: number | null;
   category_id: string;
+  user_id: string;
+  created_at: string;
+  mastery_level: number;
+  last_practiced: string;
 }
 
-interface Category {
-  id: string;
-  name: string;
-}
+const wordsService = new WordsService(supabase);
 
-export default function WordList({ userId }: { userId: string }) {
+export default function WordList() {
   const [words, setWords] = useState<Word[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [loading, setLoading] = useState(true);
+  const userId = useAppSelector((state) => state.auth.userId);
 
   useEffect(() => {
-    fetchWords();
+    if (userId) {
+      fetchWords();
+    }
   }, [userId, selectedCategory]);
 
   async function fetchWords() {
     try {
-      let query = supabase
-        .from('words')
-        .select(
-          `
-          *,
-          categories (
-            name
-          )
-        `
-        )
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      if (!userId) return;
 
-      if (selectedCategory) {
-        query = query.eq('category_id', selectedCategory);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setWords(data || []);
+      // Convert string userId to number for backend service
+      const numericUserId = parseInt(userId, 10);
+      const backendWords = await wordsService.getWordsByLevel(
+        numericUserId,
+        selectedCategory,
+        null
+      );
+      setWords(backendWords);
     } catch (error) {
       console.error('Error fetching words:', error);
     } finally {
@@ -58,12 +50,14 @@ export default function WordList({ userId }: { userId: string }) {
     }
   }
 
-  async function deleteWord(id: string) {
+  async function deleteWord(wordId: string) {
     try {
-      const { error } = await supabase.from('words').delete().eq('id', id).eq('user_id', userId);
+      if (!userId) return;
 
-      if (error) throw error;
-      setWords(words.filter((word) => word.id !== id));
+      // Convert string userId to number for backend service
+      const numericUserId = parseInt(userId, 10);
+      await wordsService.deleteWord(numericUserId, wordId, selectedCategory);
+      fetchWords();
     } catch (error) {
       console.error('Error deleting word:', error);
     }
@@ -71,6 +65,10 @@ export default function WordList({ userId }: { userId: string }) {
 
   if (loading) {
     return <div className="flex justify-center">Loading...</div>;
+  }
+
+  if (!userId) {
+    return <div className="text-center text-gray-500">Please log in to view your words.</div>;
   }
 
   return (

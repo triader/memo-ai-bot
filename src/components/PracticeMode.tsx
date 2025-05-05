@@ -1,153 +1,153 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useAppSelector } from '../store/hooks';
 import { supabase } from '../config/supabase';
-import { Check, X } from 'lucide-react';
+import { WordsService } from '../../backend/services/wordsService';
 import CategorySelect from './CategorySelect';
+
+const wordsService = new WordsService(supabase);
 
 interface Word {
   id: string;
   word: string;
   translation: string;
-  category_id: string;
+  mastery_level: number;
 }
 
-export default function PracticeMode({ userId }: { userId: string }) {
-  const [currentWord, setCurrentWord] = useState<Word | null>(null);
-  const [answer, setAnswer] = useState('');
-  const [result, setResult] = useState<'correct' | 'incorrect' | null>(null);
+export default function PracticeMode() {
+  const [words, setWords] = useState<Word[]>([]);
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const userId = useAppSelector((state) => state.auth.userId);
 
   useEffect(() => {
-    if (selectedCategory) {
-      fetchNextWord();
+    if (userId && selectedCategory) {
+      fetchWords();
     }
   }, [userId, selectedCategory]);
 
-  async function fetchNextWord() {
+  const fetchWords = async () => {
     try {
-      const { data, error } = await supabase
-        .from('words')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('category_id', selectedCategory)
-        .lt('mastery_level', 90)
-        .order('last_practiced', { ascending: true })
-        .limit(1)
-        .single();
+      if (!userId) return;
 
-      if (error) throw error;
-      setCurrentWord(data);
+      const numericUserId = parseInt(userId, 10);
+      const wordsData = await wordsService.getWordsByLevel(numericUserId, selectedCategory, null);
+      setWords(wordsData);
+      setCurrentWordIndex(0);
+      setShowTranslation(false);
     } catch (error) {
-      console.error('Error fetching word:', error);
-      setCurrentWord(null);
+      setError('Failed to fetch words. Please try again.');
+      console.error('Error fetching words:', error);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!currentWord) return;
-
-    const isCorrect = answer.toLowerCase().trim() === currentWord.translation.toLowerCase().trim();
-    setResult(isCorrect ? 'correct' : 'incorrect');
+  const handleNext = async (isCorrect: boolean) => {
+    if (!userId || !words[currentWordIndex]) return;
 
     try {
-      await supabase.rpc('update_word_progress', {
-        p_word_id: currentWord.id,
-        p_is_correct: isCorrect
-      });
+      const numericUserId = parseInt(userId, 10);
+      await wordsService.updateWordProgress(numericUserId, words[currentWordIndex].id, isCorrect);
 
-      setTimeout(() => {
-        setAnswer('');
-        setResult(null);
-        fetchNextWord();
-      }, 1500);
+      if (currentWordIndex < words.length - 1) {
+        setCurrentWordIndex(currentWordIndex + 1);
+        setShowTranslation(false);
+      } else {
+        // Practice session completed
+        setWords([]);
+        setCurrentWordIndex(0);
+        setShowTranslation(false);
+      }
     } catch (error) {
-      console.error('Error updating progress:', error);
+      console.error('Error updating word progress:', error);
     }
-  }
-
-  if (!selectedCategory) {
-    return (
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Select Category to Practice</h2>
-        <CategorySelect userId={userId} value={selectedCategory} onChange={setSelectedCategory} />
-      </div>
-    );
-  }
+  };
 
   if (loading) {
     return <div className="flex justify-center">Loading...</div>;
   }
 
-  if (!currentWord) {
+  if (!userId) {
+    return <div className="text-center text-gray-500">Please log in to practice.</div>;
+  }
+
+  if (!selectedCategory) {
     return (
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow p-6 text-center">
-        <h2 className="text-xl font-semibold mb-4">No Words to Practice</h2>
-        <p className="text-gray-600">
-          All your words in this category are well learned or you need to add new ones.
-        </p>
-        <button
-          onClick={() => setSelectedCategory('')}
-          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-        >
-          Choose Another Category
-        </button>
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Select a Category</h2>
+          <CategorySelect userId={userId} value={selectedCategory} onChange={setSelectedCategory} />
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-md mx-auto bg-white rounded-lg shadow p-6">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900">{currentWord.word}</h2>
-        <p className="text-sm text-gray-500 mt-2">Type the translation</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="Your answer..."
-          disabled={!!result}
-        />
-        <button
-          type="submit"
-          disabled={!!result}
-          className="w-full py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          Check Answer
-        </button>
-      </form>
-
-      {result && (
-        <div
-          className={`mt-4 p-4 rounded-lg ${result === 'correct' ? 'bg-green-100' : 'bg-red-100'}`}
-        >
-          <div className="flex items-center">
-            {result === 'correct' ? (
-              <Check className="w-5 h-5 text-green-500 mr-2" />
-            ) : (
-              <X className="w-5 h-5 text-red-500 mr-2" />
-            )}
-            <span className={result === 'correct' ? 'text-green-700' : 'text-red-700'}>
-              {result === 'correct'
-                ? 'Correct!'
-                : `Incorrect. The answer is: ${currentWord.translation}`}
-            </span>
-          </div>
+  if (words.length === 0) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white p-6 rounded-lg shadow text-center">
+          <h2 className="text-xl font-semibold mb-4">Practice Session Complete!</h2>
+          <p className="text-gray-600 mb-4">You've completed all words in this category.</p>
+          <button
+            onClick={() => setSelectedCategory('')}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Choose Another Category
+          </button>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      <button
-        onClick={() => setSelectedCategory('')}
-        className="mt-4 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-      >
-        Change Category
-      </button>
+  const currentWord = words[currentWordIndex];
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="mb-4">
+          <CategorySelect userId={userId} value={selectedCategory} onChange={setSelectedCategory} />
+        </div>
+
+        {error && <div className="text-red-600 text-sm mb-4">{error}</div>}
+
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold mb-4">{currentWord.word}</h2>
+          {showTranslation ? (
+            <p className="text-xl text-gray-700 mb-6">{currentWord.translation}</p>
+          ) : (
+            <button
+              onClick={() => setShowTranslation(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Show Translation
+            </button>
+          )}
+        </div>
+
+        {showTranslation && (
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => handleNext(false)}
+              className="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700"
+            >
+              Incorrect
+            </button>
+            <button
+              onClick={() => handleNext(true)}
+              className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+            >
+              Correct
+            </button>
+          </div>
+        )}
+
+        <div className="mt-6 text-center text-sm text-gray-500">
+          Word {currentWordIndex + 1} of {words.length}
+        </div>
+      </div>
     </div>
   );
 }

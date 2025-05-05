@@ -39,6 +39,7 @@ export function inputHandler(bot: TelegramBot) {
     const chatId = msg.chat.id;
     const userId = msg.from?.id;
     const text = msg.text;
+    console.log('🚀 ~ bot.on ~ userId:', userId);
 
     if (!chatId || !userId || !text) return;
 

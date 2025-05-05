@@ -1,166 +1,140 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from './store/hooks';
+import { setUser, clearUser } from './store/slices/authSlice';
 import { supabase } from './config/supabase';
-import { Languages, BookOpen, Plus, RotateCcw, Award, LogOut, Shield } from 'lucide-react';
+import Dashboard from './pages/Dashboard';
 import WordList from './components/WordList';
 import AddWordForm from './components/AddWordForm';
 import PracticeMode from './components/PracticeMode';
 import Stats from './components/Stats';
-import AdminPanel from './components/AdminPanel';
 import AuthContainer from './components/auth/AuthContainer';
 
+// For testing purposes
+const TEST_USER_ID = '29559383';
+const USE_TEST_USER = true; // Set to false to use real authentication
+
 function App() {
-  const [view, setView] = useState<'words' | 'add' | 'practice' | 'stats' | 'admin'>('words');
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   useEffect(() => {
-    checkUser();
+    if (USE_TEST_USER) {
+      // Use test user ID
+      dispatch(setUser(TEST_USER_ID));
+    } else {
+      // Check for existing session
+      const checkSession = async () => {
+        const {
+          data: { session }
+        } = await supabase.auth.getSession();
+        if (session?.user) {
+          dispatch(setUser(session.user.id));
+        }
+      };
+      checkSession();
 
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setUserId(session?.user?.id ?? null);
-      checkAdminStatus(session?.user?.id);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  async function checkUser() {
-    try {
+      // Listen for auth changes
       const {
-        data: { session }
-      } = await supabase.auth.getSession();
-      setUserId(session?.user?.id ?? null);
-      await checkAdminStatus(session?.user?.id);
-    } catch (err) {
-      console.error('Error checking auth status:', err);
-    } finally {
-      setLoading(false);
+        data: { subscription }
+      } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) {
+          dispatch(setUser(session.user.id));
+        } else {
+          dispatch(clearUser());
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
     }
-  }
+  }, [dispatch]);
 
-  async function checkAdminStatus(userId: string | undefined) {
-    if (!userId) return;
-
-    const { data, error } = await supabase
-      .from('users')
-      .select('is_admin')
-      .eq('id', userId)
-      .single();
-
-    if (data?.is_admin) {
-      setIsAdmin(true);
+  const handleAuthSuccess = async () => {
+    if (USE_TEST_USER) {
+      dispatch(setUser(TEST_USER_ID));
+    } else {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+      if (user) {
+        dispatch(setUser(user.id));
+      }
     }
-  }
-
-  async function handleLogout() {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error('Error signing out:', err);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!userId) {
-    return <AuthContainer onAuthSuccess={() => checkUser()} />;
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <Languages className="w-8 h-8 text-blue-500" />
-              <span className="ml-2 text-xl font-semibold">LangLearn</span>
-            </div>
-            <div className="flex space-x-4 items-center">
-              <button
-                onClick={() => setView('words')}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                  view === 'words'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <BookOpen className="w-5 h-5 mr-1" />
-                Words
-              </button>
-              <button
-                onClick={() => setView('add')}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                  view === 'add' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Plus className="w-5 h-5 mr-1" />
-                Add
-              </button>
-              <button
-                onClick={() => setView('practice')}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                  view === 'practice'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <RotateCcw className="w-5 h-5 mr-1" />
-                Practice
-              </button>
-              <button
-                onClick={() => setView('stats')}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                  view === 'stats'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Award className="w-5 h-5 mr-1" />
-                Stats
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={() => setView('admin')}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                    view === 'admin'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <Shield className="w-5 h-5 mr-1" />
-                  Admin
-                </button>
-              )}
-              <button
-                onClick={handleLogout}
-                className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-red-500 hover:text-red-700"
-              >
-                <LogOut className="w-5 h-5 mr-1" />
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <Router>
+      <div className="min-h-screen w-screen bg-gradient-to-br from-blue-500 to-purple-600">
+        {isAuthenticated ? (
+          <div className="min-h-screen w-full flex flex-col">
+            <nav className="bg-white shadow-sm w-full">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between h-16">
+                  <div className="flex">
+                    <div className="flex-shrink-0 flex items-center">
+                      <Link to="/" className="text-xl font-bold text-gray-800">
+                        Memo AI
+                      </Link>
+                    </div>
+                    <div className="ml-6 flex space-x-4 sm:space-x-8">
+                      <Link
+                        to="/"
+                        className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                      >
+                        Dashboard
+                      </Link>
+                      <Link
+                        to="/words"
+                        className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                      >
+                        Words
+                      </Link>
+                      <Link
+                        to="/add-word"
+                        className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                      >
+                        Add Word
+                      </Link>
+                      <Link
+                        to="/practice"
+                        className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                      >
+                        Practice
+                      </Link>
+                      <Link
+                        to="/stats"
+                        className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                      >
+                        Stats
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </nav>
 
-      <main className="max-w-7xl mx-auto py-6 px-4">
-        {view === 'words' && <WordList userId={userId} />}
-        {view === 'add' && <AddWordForm userId={userId} />}
-        {view === 'practice' && <PracticeMode userId={userId} />}
-        {view === 'stats' && <Stats userId={userId} />}
-        {view === 'admin' && isAdmin && <AdminPanel />}
-      </main>
-    </div>
+            <main className="flex-1 w-full">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/words" element={<WordList />} />
+                <Route path="/add-word" element={<AddWordForm />} />
+                <Route path="/practice" element={<PracticeMode />} />
+                <Route path="/stats" element={<Stats />} />
+              </Routes>
+            </main>
+          </div>
+        ) : (
+          <div className="min-h-screen w-full flex items-center justify-center">
+            <Routes>
+              <Route path="/login" element={<AuthContainer onAuthSuccess={handleAuthSuccess} />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </div>
+        )}
+      </div>
+    </Router>
   );
 }
 
