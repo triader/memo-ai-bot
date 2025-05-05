@@ -3,7 +3,6 @@ import CourseGrid from '../components/CourseGrid';
 import LearningProgress from '../components/LearningProgress';
 import { supabase } from '../config/supabase';
 import { CategoryService } from '../../backend/services/categoryService';
-import { WordsService } from '../../backend/services/wordsService';
 import { Category as BackendCategory } from '../../backend/services/category';
 import { useAppSelector } from '../store/hooks';
 
@@ -13,7 +12,6 @@ interface Category extends BackendCategory {
 }
 
 const categoryService = new CategoryService(supabase);
-const wordsService = new WordsService(supabase);
 
 const Dashboard: React.FC = () => {
   const [userCategories, setUserCategories] = useState<Category[]>([]);
